@@ -71,9 +71,9 @@
 </div>
 
 <div id="tabs">
-  <button class="tab active" onclick="showTab('new')">New Entry</button>
-  <button class="tab" onclick="showTab('browse')">Browse</button>
-  <button class="tab" onclick="showTab('export')">Export</button>
+  <button class="tab active" onclick="showTab('new',this)">New Entry</button>
+  <button class="tab" onclick="showTab('browse',this)">Browse</button>
+  <button class="tab" onclick="showTab('export',this)">Export</button>
 </div>
 
 <!-- ===== New Entry ===== -->
@@ -185,11 +185,11 @@ function updatePreview() {
 }
 
 // ===================== Tabs =====================
-function showTab(name) {
+function showTab(name, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
-  event.target.classList.add('active');
+  if (btn) btn.classList.add('active');
   if (name === 'browse') loadEntries();
 }
 

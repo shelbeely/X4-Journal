@@ -47,29 +47,44 @@ esp_err_t entry_serialize(const journal_entry_t *e, char **out, size_t *len)
 {
     if (!e || !out || !len) return ESP_ERR_INVALID_ARG;
 
-    /* build front matter */
-    char fm[1024];
-    int pos = 0;
-    pos += snprintf(fm + pos, sizeof(fm) - pos, "---\n");
-    pos += snprintf(fm + pos, sizeof(fm) - pos, "id: %s\n", e->id);
-    pos += snprintf(fm + pos, sizeof(fm) - pos, "created: %s\n", e->created);
-    pos += snprintf(fm + pos, sizeof(fm) - pos, "mood: %d\n", e->mood);
-    pos += snprintf(fm + pos, sizeof(fm) - pos, "energy: %d\n", e->energy);
-    pos += snprintf(fm + pos, sizeof(fm) - pos, "anxiety: %d\n", e->anxiety);
-    pos += snprintf(fm + pos, sizeof(fm) - pos, "body_feeling: %s\n", e->body_feeling);
+    /* build front matter — use size_t pos to avoid signed/unsigned mismatch that
+       would allow the remaining-size argument to wrap when the buffer is full */
+    char   fm[1024];
+    size_t fm_cap = sizeof(fm);
+    size_t pos    = 0;
+
+#define FM_APPEND(...) do { \
+    if (pos < fm_cap) { \
+        int _written = snprintf(fm + pos, fm_cap - pos, __VA_ARGS__); \
+        if (_written > 0) { \
+            size_t _uw = (size_t)_written; \
+            pos += (_uw < fm_cap - pos) ? _uw : fm_cap - pos - 1; \
+        } \
+    } \
+} while (0)
+
+    FM_APPEND("---\n");
+    FM_APPEND("id: %s\n", e->id);
+    FM_APPEND("created: %s\n", e->created);
+    FM_APPEND("mood: %d\n", e->mood);
+    FM_APPEND("energy: %d\n", e->energy);
+    FM_APPEND("anxiety: %d\n", e->anxiety);
+    FM_APPEND("body_feeling: %s\n", e->body_feeling);
     if (e->tag_count > 0) {
-        pos += snprintf(fm + pos, sizeof(fm) - pos, "tags:\n");
+        FM_APPEND("tags:\n");
         for (int i = 0; i < e->tag_count; i++) {
-            pos += snprintf(fm + pos, sizeof(fm) - pos, "  - %s\n", e->tags[i]);
+            FM_APPEND("  - %s\n", e->tags[i]);
         }
     } else {
-        pos += snprintf(fm + pos, sizeof(fm) - pos, "tags: []\n");
+        FM_APPEND("tags: []\n");
     }
     int src = (e->source >= 1 && e->source <= 3) ? e->source : 1;
-    pos += snprintf(fm + pos, sizeof(fm) - pos, "source: %s\n", SOURCE_NAMES[src]);
-    pos += snprintf(fm + pos, sizeof(fm) - pos, "encrypted: %s\n", e->encrypted ? "true" : "false");
-    pos += snprintf(fm + pos, sizeof(fm) - pos, "favorite: %s\n", e->favorite  ? "true" : "false");
-    pos += snprintf(fm + pos, sizeof(fm) - pos, "---\n\n");
+    FM_APPEND("source: %s\n", SOURCE_NAMES[src]);
+    FM_APPEND("encrypted: %s\n", e->encrypted ? "true" : "false");
+    FM_APPEND("favorite: %s\n",  e->favorite  ? "true" : "false");
+    FM_APPEND("---\n\n");
+
+#undef FM_APPEND
 
     size_t total = pos + strlen(e->body) + 1;
     char  *buf   = malloc(total);
