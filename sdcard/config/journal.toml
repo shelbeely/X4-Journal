@@ -1,0 +1,19 @@
+[device]
+name = "PocketShrine"
+sleep_timeout_sec = 300
+auto_full_refresh_interval = 10
+
+[journal]
+default_prompt_pack = "daily-checkin"
+show_streak = true
+sleep_shows_prompt = true
+
+[privacy]
+encryption_enabled = false
+lock_on_sleep = false
+passphrase_hash = ""
+
+[web]
+server_enabled = false
+auto_start_on_sync = true
+port = 80

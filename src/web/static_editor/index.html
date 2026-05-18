@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PocketShrine — Journal</title>
+<style>
+  :root {
+    --bg: #1a1a2e; --surface: #16213e; --surface2: #0f3460;
+    --accent: #e94560; --text: #eee; --muted: #aaa;
+    --border: #2a2a4e; --success: #4caf50;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui,-apple-system,sans-serif; min-height: 100vh; }
+  #topbar { background: var(--surface2); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
+  #topbar h1 { font-size: 1.1rem; color: var(--accent); }
+  #status { font-size: 0.8rem; color: var(--muted); }
+  #tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; font-size: 0.9rem; color: var(--muted); border: none; background: none; }
+  .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+  .panel { display: none; padding: 16px; max-width: 700px; margin: 0 auto; }
+  .panel.active { display: block; }
+  .prompt-card { background: var(--surface2); border-left: 4px solid var(--accent); padding: 12px 16px; margin-bottom: 20px; border-radius: 4px; font-style: italic; color: var(--text); }
+  label { display: block; margin-bottom: 4px; font-size: 0.85rem; color: var(--muted); }
+  .field { margin-bottom: 16px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .range-row { display: flex; align-items: center; gap: 10px; }
+  .range-val { min-width: 24px; text-align: center; font-weight: bold; color: var(--accent); }
+  .body-opts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .body-opts input[type=radio] { display: none; }
+  .body-opts label { padding: 6px 14px; border: 1px solid var(--border); border-radius: 20px; cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+  .body-opts input[type=radio]:checked + label { border-color: var(--accent); color: var(--accent); }
+  input[type=text], textarea { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-size: 0.95rem; resize: vertical; }
+  textarea { min-height: 180px; font-family: 'Courier New', monospace; }
+  .md-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .md-split { grid-template-columns: 1fr; } }
+  .preview { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; min-height: 180px; font-size: 0.9rem; line-height: 1.6; overflow-y: auto; }
+  .preview h1, .preview h2, .preview h3 { color: var(--accent); margin-bottom: 8px; }
+  .preview strong { color: #fff; }
+  .preview code { background: var(--surface2); padding: 2px 6px; border-radius: 3px; font-size: 0.85rem; }
+  .preview pre { background: var(--surface2); padding: 10px; border-radius: 4px; overflow-x: auto; }
+  .preview p { margin-bottom: 8px; }
+  .btn { display: inline-block; padding: 10px 20px; background: var(--accent); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; margin-top: 8px; }
+  .btn:hover { opacity: 0.88; }
+  .btn-outline { background: none; border: 1px solid var(--accent); color: var(--accent); }
+  .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+  .entry-list { list-style: none; }
+  .entry-item { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 10px; cursor: pointer; }
+  .entry-item:hover { border-color: var(--accent); }
+  .entry-meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+  .entry-preview { font-size: 0.9rem; }
+  .entry-body { display: none; margin-top: 10px; font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap; border-top: 1px solid var(--border); padding-top: 8px; }
+  .tag { display: inline-block; padding: 2px 8px; background: var(--surface2); border-radius: 12px; font-size: 0.75rem; margin-right: 4px; color: var(--muted); }
+  .mood-row { display: flex; gap: 6px; }
+  .mood-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; }
+  .m-hi { background: #c8e6c9; color: #1b5e20; }
+  .m-mid { background: #fff9c4; color: #827717; }
+  .m-lo { background: #ffcdd2; color: #b71c1c; }
+  .fav-btn { float: right; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.1rem; }
+  .fav-btn.active { color: #ffd700; }
+  .export-section { text-align: center; padding: 40px 0; }
+  .export-section p { color: var(--muted); margin-bottom: 20px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--success); color: #fff; padding: 10px 20px; border-radius: 6px; font-size: 0.9rem; display: none; z-index: 999; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>🌙 PocketShrine</h1>
+  <span id="status">Connecting…</span>
+</div>
+
+<div id="tabs">
+  <button class="tab active" onclick="showTab('new')">New Entry</button>
+  <button class="tab" onclick="showTab('browse')">Browse</button>
+  <button class="tab" onclick="showTab('export')">Export</button>
+</div>
+
+<!-- ===== New Entry ===== -->
+<div id="panel-new" class="panel active">
+  <div class="prompt-card" id="daily-prompt">Loading today's prompt…</div>
+
+  <div class="field">
+    <label>Mood <span class="range-val" id="mood-val">3</span> / 5</label>
+    <div class="range-row">
+      <span>😞</span>
+      <input type="range" id="mood" min="1" max="5" value="3" oninput="document.getElementById('mood-val').textContent=this.value">
+      <span>😊</span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Energy <span class="range-val" id="energy-val">3</span> / 5</label>
+    <div class="range-row">
+      <span>🔋</span>
+      <input type="range" id="energy" min="1" max="5" value="3" oninput="document.getElementById('energy-val').textContent=this.value">
+      <span>⚡</span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Anxiety <span class="range-val" id="anxiety-val">3</span> / 5</label>
+    <div class="range-row">
+      <span>🌊</span>
+      <input type="range" id="anxiety" min="1" max="5" value="3" oninput="document.getElementById('anxiety-val').textContent=this.value">
+      <span>😰</span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Body feeling</label>
+    <div class="body-opts">
+      <input type="radio" name="body_feeling" id="bf-good" value="good">
+      <label for="bf-good">Good</label>
+      <input type="radio" name="body_feeling" id="bf-neutral" value="neutral" checked>
+      <label for="bf-neutral">Neutral</label>
+      <input type="radio" name="body_feeling" id="bf-rough" value="rough">
+      <label for="bf-rough">Rough</label>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Tags (comma-separated)</label>
+    <input type="text" id="tags" placeholder="tired, tiny-win, hopeful">
+  </div>
+
+  <div class="field">
+    <label>Entry (Markdown)</label>
+    <div class="md-split">
+      <textarea id="body" placeholder="Write here…" oninput="updatePreview()"></textarea>
+      <div class="preview" id="preview"><em style="color:var(--muted)">Preview</em></div>
+    </div>
+  </div>
+
+  <button class="btn" onclick="saveEntry()">Save Entry</button>
+</div>
+
+<!-- ===== Browse ===== -->
+<div id="panel-browse" class="panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h2 style="font-size:1rem">Entries</h2>
+    <button class="btn btn-outline btn-sm" onclick="loadEntries()">Refresh</button>
+  </div>
+  <ul class="entry-list" id="entry-list"><li style="color:var(--muted)">Loading…</li></ul>
+</div>
+
+<!-- ===== Export ===== -->
+<div id="panel-export" class="panel">
+  <div class="export-section">
+    <p>Download all your journal entries as a ZIP file containing plain Markdown files.</p>
+    <button class="btn" onclick="downloadExport()">⬇ Download ZIP</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===================== Markdown renderer =====================
+function mdToHtml(md) {
+  if (!md) return '';
+  let html = md
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    // code blocks
+    .replace(/```([\s\S]*?)```/g, (_,c) => `<pre><code>${c.trim()}</code></pre>`)
+    // headings
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm,  '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm,   '<h1>$1</h1>')
+    // bold & italic
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+    .replace(/_(.+?)_/g,       '<em>$1</em>')
+    // inline code
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // horizontal rule
+    .replace(/^---$/gm, '<hr>')
+    // line breaks → paragraphs
+    .replace(/\n\n+/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+  return '<p>' + html + '</p>';
+}
+
+function updatePreview() {
+  document.getElementById('preview').innerHTML = mdToHtml(document.getElementById('body').value);
+}
+
+// ===================== Tabs =====================
+function showTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'browse') loadEntries();
+}
+
+// ===================== Toast =====================
+function toast(msg, ok=true) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = ok ? '#4caf50' : '#e94560';
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 2500);
+}
+
+// ===================== Init =====================
+async function init() {
+  try {
+    const r = await fetch('/api/prompts/daily');
+    const d = await r.json();
+    document.getElementById('daily-prompt').textContent = d.prompt || '';
+    document.getElementById('status').textContent = 'Connected';
+  } catch(e) {
+    document.getElementById('status').textContent = 'Offline';
+  }
+}
+
+// ===================== Save entry =====================
+async function saveEntry() {
+  const tags = document.getElementById('tags').value
+    .split(',').map(t => t.trim()).filter(Boolean);
+  const body_feeling = document.querySelector('input[name=body_feeling]:checked')?.value || 'neutral';
+
+  const payload = {
+    mood:         parseInt(document.getElementById('mood').value),
+    energy:       parseInt(document.getElementById('energy').value),
+    anxiety:      parseInt(document.getElementById('anxiety').value),
+    body_feeling,
+    tags,
+    body: document.getElementById('body').value,
+  };
+
+  try {
+    const r = await fetch('/api/entries', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) throw new Error(r.status);
+    toast('Entry saved ✓');
+    document.getElementById('body').value = '';
+    document.getElementById('preview').innerHTML = '<em style="color:var(--muted)">Preview</em>';
+    document.getElementById('tags').value = '';
+    document.getElementById('mood').value = 3;
+    document.getElementById('energy').value = 3;
+    document.getElementById('anxiety').value = 3;
+    document.getElementById('mood-val').textContent = '3';
+    document.getElementById('energy-val').textContent = '3';
+    document.getElementById('anxiety-val').textContent = '3';
+  } catch(e) {
+    toast('Save failed: ' + e, false);
+  }
+}
+
+// ===================== Browse =====================
+function moodClass(v) {
+  return v >= 4 ? 'm-hi' : v >= 3 ? 'm-mid' : 'm-lo';
+}
+
+async function loadEntries() {
+  const list = document.getElementById('entry-list');
+  list.innerHTML = '<li style="color:var(--muted)">Loading…</li>';
+  try {
+    const r = await fetch('/api/entries');
+    const entries = await r.json();
+    if (!entries.length) { list.innerHTML = '<li style="color:var(--muted)">No entries yet.</li>'; return; }
+    list.innerHTML = entries.map(e => {
+      const tagsHtml = (e.tags||[]).map(t => `<span class="tag">${t}</span>`).join('');
+      return `<li class="entry-item" onclick="toggleEntry(this,'${e.id}')">
+        <button class="fav-btn ${e.favorite?'active':''}" onclick="event.stopPropagation();toggleFav('${e.id}',this)">${e.favorite?'★':'☆'}</button>
+        <div class="entry-meta">${e.created||e.id}</div>
+        <div class="mood-row">
+          <span class="mood-badge ${moodClass(e.mood)}">M:${e.mood}</span>
+          <span class="mood-badge ${moodClass(e.energy)}">E:${e.energy}</span>
+          <span class="mood-badge ${moodClass(6-e.anxiety)}">A:${e.anxiety}</span>
+          ${tagsHtml}
+        </div>
+        <div class="entry-preview">${e.preview||''}</div>
+        <div class="entry-body" id="body-${e.id}"></div>
+      </li>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = `<li style="color:var(--accent)">Failed to load: ${e}</li>`;
+  }
+}
+
+async function toggleEntry(el, id) {
+  const body = document.getElementById('body-' + id);
+  if (body.style.display === 'block') { body.style.display = 'none'; return; }
+  if (!body.textContent) {
+    try {
+      const r = await fetch('/api/entries/' + id);
+      const e = await r.json();
+      body.textContent = e.body || '(no body)';
+    } catch(e) { body.textContent = 'Error loading entry'; }
+  }
+  body.style.display = 'block';
+}
+
+async function toggleFav(id, btn) {
+  try {
+    await fetch('/api/entries/' + id + '/favorite', { method: 'POST' });
+    const active = btn.classList.toggle('active');
+    btn.textContent = active ? '★' : '☆';
+  } catch(e) { toast('Failed', false); }
+}
+
+// ===================== Export =====================
+function downloadExport() {
+  const a = document.createElement('a');
+  a.href = '/api/export';
+  a.download = 'journal-export.zip';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ===================== Start =====================
+init();
+</script>
+</body>
+</html>
