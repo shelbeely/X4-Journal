@@ -46,12 +46,12 @@ Enables the HTTP diagnostics API and verbose logging for developer iteration.
 ./tools/agent_build_dev.sh
 ```
 
-Or manually, add diagnostic defines to `build_flags` in `platformio.ini` and run:
+Or manually:
 ```sh
-pio run --environment x4_journal
+pio run --environment x4_journal_dev
 ```
 
-Output: `.pio/build/x4_journal/<project>.bin`
+Output: `.pio/build/x4_journal_dev/<project>.bin`
 
 ---
 
@@ -60,19 +60,11 @@ Output: `.pio/build/x4_journal/<project>.bin`
 Strictest OTA health gate. Intended for AI-agent-assisted development where every
 subsystem must pass before the firmware is accepted.
 
-Add the following to `build_flags` in `platformio.ini`:
-```
--DCONFIG_X4_DEV_DIAGNOSTICS=1
--DCONFIG_X4_AGENT_DIAGNOSTICS=1
--DCONFIG_X4_DIAG_HTTP_API=1
-```
-
-Then build:
 ```sh
-pio run --environment x4_journal
+pio run --environment x4_journal_agent
 ```
 
-Output: `.pio/build/x4_journal/<project>.bin`
+Output: `.pio/build/x4_journal_agent/<project>.bin`
 
 ---
 
@@ -206,16 +198,17 @@ To exit safe mode, power cycle without holding the button.
 
 | Item | Assumption / Limitation |
 |------|------------------------|
-| Display driver | Unknown until firmware is inspected. Spec assumes a GDEW-family e-paper driver. |
-| Safe mode GPIO | Defaults to GPIO0 (standard ESP32 boot button). Verify against X4 schematic. |
-| Partition sizes | Spec assumes ≥ 1.5 MB per OTA slot. Verify actual partition CSV. |
-| ESP-IDF version | Rollback APIs (`esp_ota_mark_app_invalid_rollback_and_reboot`) require ESP-IDF ≥ 4.x. |
-| Battery monitor | Spec references `min_battery_percent` in the manifest. Battery reading is only enforced if a battery ADC/gauge driver exists. |
-| Web server | Spec provides HTTP API endpoints. These are only registered if a web server (e.g., ESP-IDF `httpd`) is included in the build. |
-| Camera feedback | `tools/capture_display.sh` is referenced in `display-diagnostics.md`. It does not exist yet; `camera_verify` will be `"unavailable"` until implemented. |
+| Display driver | SSD1677 (confirmed). Driven by `EInkDisplay` SDK lib at 800×480. Partial refresh falls back to full refresh as `EInkDisplay` does not expose a partial-refresh API. |
+| Safe mode GPIO | GPIO3 — the POWER button on the X4 hardware (`X4_POWER_BTN_PIN` in `hardware_pins.h`). Active LOW with internal pull-up. |
+| Partition sizes | Each OTA slot is 1.5 MB (0x17F000). SPIFFS remains at 0x310000 with 960 KB. |
+| ESP-IDF version | Rollback APIs (`esp_ota_mark_app_invalid_rollback_and_reboot`) are available in ESP-IDF ≥ 4.x. PlatformIO `espressif32` platform includes a compatible version. |
+| Battery monitor | `min_battery_percent` in the OTA manifest is parsed but not enforced unless a battery reading is available. The X4 has a battery ADC on GPIO1; the `power.h` module provides percentage readings. |
+| Web server | Arduino `WebServer` on port 80. All new API modules register routes in `web_server_start()`. |
+| Camera feedback | `tools/capture_display.sh` does not exist; `camera_verify` is always `"unavailable"` until implemented. |
 | TLS certificates | `CONFIG_OTA_SERVER_CERT_PEM` must be set for production. An empty value disables certificate verification (development only). |
-| Log buffer | `GET /api/logs` returns `501` if an in-memory log ring buffer is not implemented. |
-| Dev API auth | If `CONFIG_X4_DIAG_API_TOKEN` is empty, `/api/dev/*` endpoints have no authentication. This is acceptable for development but must be documented in release notes. |
+| Log buffer | `GET /api/logs` returns `501` if the log buffer was not initialised. `log_buffer_init()` is called at the start of `setup()`. |
+| Dev API auth | If `CONFIG_X4_DIAG_API_TOKEN` is empty, `/api/dev/*` endpoints have no authentication. Acceptable for development; must be configured before production use. |
+| First-time flash | The new dual-OTA partition table can only be written via USB. Devices with the old factory-only layout must be reflashed before OTA is functional. |
 
 ---
 

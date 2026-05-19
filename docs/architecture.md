@@ -7,7 +7,7 @@
 **Display:** SPI EPD 800×480 framebuffer (SSD1677 driver via `EInkDisplay` SDK lib, wrapped in `src/platform/display`)
 **Storage:** SD card via SdFat (`/sdcard/` VFS prefix); NVS for config state
 **Input:** Buttons via ADC resistor-ladder (GPIO1/GPIO2) + power button (GPIO3); events through FreeRTOS queue (see `src/platform/buttons`)
-**Connectivity:** 802.11 b/g/n Wi-Fi (SoftAP mode; SSID `PocketShrine-XXXX`)
+**Connectivity:** 802.11 b/g/n Wi-Fi (SoftAP mode: SSID `PocketShrine-XXXX`; STA mode for OTA/internet using saved credentials)
 **Build system:** PlatformIO (`platformio.ini`)
 
 ---
@@ -125,7 +125,7 @@
 ### `src/platform/`
 Direct hardware abstraction. No business logic. Each module:
 - `buttons` — GPIO ISR + FreeRTOS queue; emits `button_event_t` with id, type (press/release/hold), duration
-- `display` — SPI EPD driver; 200×200 framebuffer; `display_set_pixel` / `display_draw_text` / `display_full_refresh`
+- `display` — SPI EPD driver; 800×480 framebuffer (SSD1677 via `EInkDisplay` SDK lib); `display_set_pixel` / `display_draw_text` / `display_full_refresh`; diagnostic extensions: `display_render_test_pattern`, `display_screenshot_bmp`, `display_get_status`
 - `sdcard` — FATFS mount + helpers: mkdir_p, read, write, list, delete
 - `wifi` — SoftAP lifecycle; SSID = `PocketShrine-XXXX` (last 4 of MAC)
 - `rtc` — SNTP + NVS timestamp; datetime formatting helpers
@@ -167,9 +167,21 @@ E-paper rules: no animations, full-screen state changes only, large selectable r
 ```
 setup()  [Arduino entry point in src/main.cpp]
   │
+  ├─► log_buffer_init()          — install vprintf hook; captures all boot logs
+  │
+  ├─► [X4] BOOT_START emitted
+  │
+  ├─► nvs_utils_init()           — init NVS flash; handles corrupted partition
+  │
+  ├─► nvs_utils_boot_count_increment()  — crash-loop counter
+  │
+  ├─► safe_mode_check_entry()    — GPIO3 hold detection (≥3 s)
+  │
+  ├─► [if safe mode] safe_mode_run()   — blocks; returns only on reboot
+  │
   ├─► sdcard_init()              — must come before any filesystem access
   │
-  ├─► display_init()             — EInkDisplay heap allocation + SPI init
+  ├─► display_init()             — EInkDisplay heap allocation + SPI init; emits DISPLAY_INIT_*
   │
   ├─► display splash screen      — "PocketShrine vX.Y.Z" drawn and refreshed
   │
@@ -188,6 +200,19 @@ setup()  [Arduino entry point in src/main.cpp]
   ├─► entry_editor_init()
   │
   ├─► buttons_init()             — starts FreeRTOS button_task polling InputManager
+  │
+  ├─► wifi_sta_connect_saved()   — connect to saved AP for OTA + NTP
+  │
+  ├─► [if OTA_PENDING_VERIFY] health_check_run()
+  │       └─► health_check_apply_rollback_gate()
+  │               ├─► [pass] ota_mark_valid() + nvs_utils_boot_count_reset()
+  │               └─► [fail] ota_rollback() → esp_restart() [never returns]
+  │
+  ├─► [X4] BOOT_OK emitted
+  │
+  ├─► nvs_utils_boot_count_reset() + set_crashed(false)
+  │
+  ├─► web_server_start()         — registers all API routes including OTA + display
   │
   └─► journal_app_init()
       └─► xTaskCreate(journal_app_task, ...)
@@ -299,16 +324,33 @@ Today I feel: heavy, scattered. One thing I need: rest. Tiny win: I kept going.
 | POST | `/api/prompts/upload` | Upload new prompt pack JSON |
 | GET | `/api/export` | Download ZIP of all entries |
 | POST | `/api/import` | Upload `.md` files for import |
-| GET | `/api/version` | Firmware version + OTA slot |
-| GET | `/api/health` | Health check status |
-| GET | `/api/logs` | Recent serial log buffer |
-| POST | `/api/ota/check` | Trigger manifest check |
-| POST | `/api/ota/apply` | Apply validated OTA update |
+| GET | `/api/version` | Firmware version + OTA slot + pending_verify |
+| GET | `/api/health` | Run health check pipeline; return status |
+| GET | `/api/logs` | Recent serial log ring buffer |
+| POST | `/api/ota/check` | Fetch + validate OTA manifest |
+| POST | `/api/ota/apply` | Apply validated OTA update (async) |
 | POST | `/api/ota/rollback` | Roll back to previous slot |
-| GET | `/api/display/status` | Display driver status |
-| POST | `/api/display/test-pattern` | Render a named test pattern |
+| GET | `/api/display/status` | Display driver status object |
+| GET | `/api/display/screenshot.bmp` | 1-bit BMP of current framebuffer |
+| GET | `/api/display/logs` | Log lines containing DISPLAY_ markers |
+| POST | `/api/display/test-pattern` | Render named test pattern |
+| POST | `/api/display/refresh/full` | Trigger full EPD refresh |
+| POST | `/api/display/refresh/partial` | Trigger partial refresh `{x,y,w,h}` |
+| POST | `/api/display/clear` | Clear display (all white) + refresh |
+| GET | `/api/dev/status` | Full diagnostics object (dev builds only) |
+| GET | `/api/dev/health` | Health check (dev builds only, auth required) |
+| GET | `/api/dev/logs` | Full unfiltered log buffer (dev builds only) |
+| GET | `/api/dev/ota` | OTA subsystem state (dev builds only) |
+| GET | `/api/dev/display` | Display status (dev builds only) |
+| GET | `/api/dev/display/screenshot.bmp` | Screenshot (dev builds only) |
+| POST | `/api/dev/display/test-pattern` | Test pattern (dev builds only) |
+| POST | `/api/dev/ota/check` | OTA check (dev builds only) |
+| POST | `/api/dev/ota/apply` | OTA apply (dev builds only) |
+| POST | `/api/dev/reboot` | Reboot device (dev builds only) |
+| POST | `/api/dev/rollback` | OTA rollback (dev builds only) |
 
-See `api.md` for the complete endpoint catalogue including display and dev endpoints.
+`/api/dev/*` routes are compiled only when `CONFIG_X4_DIAG_HTTP_API=1`.
+See `api.md` for the complete endpoint catalogue.
 
 ---
 

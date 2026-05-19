@@ -7,6 +7,9 @@
 #include "api_entries.h"
 #include "api_prompts.h"
 #include "api_export.h"
+#include "api_system.h"
+#include "api_display.h"
+#include "api_dev.h"
 #include "journal_fs.h"
 #include "sdcard.h"
 #include "esp_log.h"
@@ -111,6 +114,11 @@ esp_err_t web_server_start(void)
     api_entries_register(*s_server);
     api_prompts_register(*s_server);
     api_export_register(*s_server);
+    api_system_register(s_server);
+    api_display_register(s_server);
+#ifdef CONFIG_X4_DIAG_HTTP_API
+    api_dev_register(s_server);
+#endif
 
     /* Catch-all for dynamic routes and OPTIONS pre-flight */
     s_server->onNotFound(not_found_handler);

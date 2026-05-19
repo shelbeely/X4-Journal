@@ -2,8 +2,11 @@
 
 ## Overview
 
-The Xteink X4 firmware currently uses a **single factory application partition** layout.
-There are no OTA slots yet — over-the-air update capability is planned for a future phase.
+The Xteink X4 firmware uses a **dual-OTA application partition** layout to support
+remote over-the-air firmware updates.  Two equal-sized OTA slots allow the previous
+firmware to be recovered automatically via ESP-IDF rollback if the new firmware fails
+its health checks.
+
 The full partition layout is defined in `partitions.csv` at the repository root.
 
 ---
@@ -13,36 +16,69 @@ The full partition layout is defined in `partitions.csv` at the repository root.
 ```
 Label     Type   SubType   Offset    Size      Notes
 --------  -----  --------  --------  --------  ----------------------------
-nvs       data   nvs       0x9000    0x6000    Non-volatile storage (config, RTC)
+nvs       data   nvs       0x9000    0x6000    Non-volatile storage (config, RTC, OTA state)
 phy_init  data   phy       0xf000    0x1000    Wi-Fi/BLE radio calibration data
-factory   app    factory   0x10000   0x300000  Application firmware (~3 MB)
+otadata   data   ota       0x10000   0x2000    OTA selection / rollback data
+ota_0     app    ota_0     0x12000   0x17F000  OTA slot 0 (~1.5 MB)
+ota_1     app    ota_1     0x191000  0x17F000  OTA slot 1 (~1.5 MB)
 spiffs    data   spiffs    0x310000  0xF0000   Filesystem / web assets (~960 KB)
 ```
 
 > This table is derived directly from `partitions.csv` in the repository root.
 > Update both files together whenever the partition layout changes.
+> Any partition table change requires the documented justification from safety-rules.md §3.
 
 ---
 
-## Current Slot Behavior
+## Justification for the Dual-OTA Layout
 
-Because there is only a `factory` partition and no `otadata` partition, the bootloader
-always loads the factory image. The OTA APIs (`esp_ota_*`) are not active in this layout.
+The factory-only layout was replaced in this commit to enable remote-safe OTA firmware
+updates as specified in the OTA design document (`docs/ota.md`).  The justification
+satisfies the invariant in `safety-rules.md §3`:
 
-OTA dual-slot support (with `ota_0`, `ota_1`, and `otadata` partitions) is planned for
-Phase 4 / 5. When that work begins, this document and `partitions.csv` must be updated
-together, following the invariant below.
+1. **Why the change is necessary**: OTA dual-slot support requires `otadata` + `ota_0`
+   + `ota_1`.  Without these partitions the `esp_ota_*` APIs are not active and remote
+   firmware updates are impossible.
+
+2. **Both OTA slots still fit**: `ota_0` occupies `0x12000–0x190FFF` (1.5 MB) and
+   `ota_1` occupies `0x191000–0x30FFFF` (1.5 MB).  They are contiguous and end exactly
+   where `spiffs` begins at `0x310000`.
+
+3. **Commit reference**: this document and `partitions.csv` are updated together in the
+   same commit; see the commit message referencing `safety-rules.md §3`.
 
 ---
 
-## Application Partition Size
+## Flash Requirements
 
-The `factory` partition is 3 MB (0x300000), which is sufficient for the current firmware
-including the display driver, storage layer, web server, and all app modules.
+This partition layout **requires a 4 MB flash chip**.  The total addressable range is
+`0x000000–0x400000` (4 MB):
+- `nvs` through `ota_1` occupies `0x9000–0x30FFFF`
+- `spiffs` occupies `0x310000–0x3FFFFF`
 
-When OTA dual-slot support is added in a future phase, the partition table will need to
-be restructured to accommodate two OTA slots. Any such change must follow the invariant
-below.
+---
+
+## OTA Slot Behavior
+
+| Situation | Active slot | Notes |
+|-----------|-------------|-------|
+| First flash (USB) | ota_0 | Initial firmware goes to ota_0 |
+| After OTA update | ota_1 (or whichever was inactive) | Device boots PENDING_VERIFY |
+| Health checks pass | same slot, marked VALID | ota_mark_valid() called |
+| Health checks fail | previous slot | ota_rollback() triggers reboot |
+
+The `otadata` partition stores which slot is active and whether it is
+`PENDING_VERIFY`, `VALID`, or `INVALID`.  The ESP-IDF second-stage bootloader
+reads `otadata` at every boot.
+
+---
+
+## Important: Partition Table Cannot Be Changed Via OTA
+
+OTA updates only replace the application binary in one of the OTA slots.  The partition
+table itself is stored in flash at offset `0x8000` and can **only** be changed by a
+full USB flash.  Devices already running the factory layout must be reflashed via USB
+before they can use the OTA dual-slot system.
 
 ---
 
@@ -56,9 +92,6 @@ A partition table change is only permitted if:
 2. The change is confirmed not to break the existing flash layout.
 3. The commit message references this document and the safety rules.
 4. The change is reviewed separately from any functional firmware change.
-
-If a proposed feature cannot fit within the existing partition layout, the feature
-specification must be revised — not the partition table.
 
 ---
 
