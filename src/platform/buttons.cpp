@@ -14,6 +14,8 @@ static button_callback_t s_cb      = nullptr;
 static void             *s_cb_ctx  = nullptr;
 static QueueHandle_t     s_poll_q;  /* used by buttons_poll() — PRESS events only */
 static TaskHandle_t      s_task    = nullptr;
+static bool              s_init    = false;
+static button_id_t       s_last_id = BTN_NONE;
 
 /* Maps InputManager button index → button_id_t */
 static const button_id_t ID_MAP[] = {
@@ -45,6 +47,7 @@ static void button_task(void *arg)
                 s_hold_start[i] = now;
                 s_hold_fired[i] = false;
                 button_event_t ev = { id, BTN_EVENT_PRESS, 0 };
+                s_last_id = id;
                 if (s_cb) s_cb(ev, s_cb_ctx);
                 /* Only PRESS events go into the poll queue */
                 xQueueSend(s_poll_q, &ev, 0);
@@ -87,6 +90,8 @@ esp_err_t buttons_init(button_callback_t cb, void *ctx)
     if (!s_poll_q) return ESP_ERR_NO_MEM;
 
     xTaskCreate(button_task, "buttons", 4096, NULL, 5, &s_task);
+    s_init   = true;
+    ESP_LOGI(TAG, "[X4] INPUT_OK");
     ESP_LOGI(TAG, "buttons_init ok");
     return ESP_OK;
 }
@@ -108,9 +113,20 @@ void buttons_deinit(void)
     }
     s_cb     = nullptr;
     s_cb_ctx = nullptr;
+    s_init   = false;
     if (s_poll_q) {
         vQueueDelete(s_poll_q);
         s_poll_q = nullptr;
     }
+}
+
+bool buttons_is_init(void)
+{
+    return s_init;
+}
+
+button_id_t buttons_last_event_id(void)
+{
+    return s_last_id;
 }
 

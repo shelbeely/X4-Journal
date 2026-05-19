@@ -34,6 +34,8 @@ typedef void (*button_callback_t)(button_event_t event, void *ctx);
 esp_err_t  buttons_init(button_callback_t cb, void *ctx);
 button_id_t buttons_poll(void);   /* blocking poll, 50 ms debounce */
 void        buttons_deinit(void);
+bool        buttons_is_init(void);
+button_id_t buttons_last_event_id(void); /* returns BTN_NONE if no event yet */
 
 #ifdef __cplusplus
 }

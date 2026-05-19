@@ -21,9 +21,9 @@ OTA_CHANNEL="${X4_OTA_CHANNEL:-dev}"
 MIN_BATTERY="${X4_MIN_BATTERY_PERCENT:-40}"
 
 # Locate built binary
-BIN_PATH=$(find build -maxdepth 1 -name "*.bin" | head -n 1)
+BIN_PATH=$(find .pio/build/x4_journal -maxdepth 1 -name "*.bin" | head -n 1)
 if [ -z "$BIN_PATH" ]; then
-  echo "[agent_publish_ota] ERROR: No .bin file found in ./build. Run agent_build.sh first." >&2
+  echo "[agent_publish_ota] ERROR: No .bin file found in .pio/build/x4_journal. Run agent_build.sh first." >&2
   exit 1
 fi
 

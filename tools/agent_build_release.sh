@@ -15,4 +15,11 @@ if [ -z "$BIN_PATH" ]; then
   exit 1
 fi
 
+# Verify that no dev-diagnostics symbols made it into the release binary
+if command -v strings &>/dev/null; then
+  if strings "$BIN_PATH" | grep -q "DEV_DIAGNOSTICS_ENABLED"; then
+    echo "[agent_build_release] WARNING: DEV_DIAGNOSTICS_ENABLED string found in release binary — check build flags" >&2
+  fi
+fi
+
 echo "[agent_build_release] Release build succeeded: $BIN_PATH"
