@@ -1,0 +1,13 @@
+.pio/
+.vscode/
+__pycache__/
+*.pyc
+build/
+sdkconfig
+sdkconfig.old
+*.o
+*.d
+*.elf
+*.bin
+*.map
+*.log

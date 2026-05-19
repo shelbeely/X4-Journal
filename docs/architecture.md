@@ -1,18 +1,57 @@
-# Architecture — System Overview
+# Architecture — X4-Journal / PocketShrine
 
 ## Hardware Target
 
-**Device:** Xteink X4
-**MCU:** ESP32 (Xtensa LX6 dual-core, 240 MHz)
-**Display:** E-paper (model TBD; update once firmware project is inspected)
-**Storage:** SPI flash (minimum 4 MB); two OTA partitions + NVS + SPIFFS
-**Input:** Physical buttons including a boot/recovery button (GPIO0 or board-defined)
-**Connectivity:** 802.11 b/g/n Wi-Fi (2.4 GHz)
-**Build system:** ESP-IDF (CMake/idf.py)
+**Device:** Xteink X4 (PocketShrine)
+**MCU:** ESP32-C3 (RISC-V single-core, 160 MHz)
+**Display:** SPI EPD 200×200 framebuffer (e-paper driver in `src/platform/display`)
+**Storage:** SD card via FATFS (`/sdcard/`); NVS for config/OTA state
+**Input:** Physical buttons — GPIO ISR + FreeRTOS queue (see `src/platform/buttons`)
+**Connectivity:** 802.11 b/g/n Wi-Fi (SoftAP mode; SSID `PocketShrine-XXXX`)
+**Build system:** PlatformIO (`platformio.ini`)
 
 ---
 
-## Firmware Layer Diagram
+## Firmware Source Layer Diagram
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                        src/main.c                        │
+│              (app_main — initialises all layers)         │
+└──────────────┬──────────────────────────┬───────────────┘
+               │                          │
+┌──────────────▼──────────────┐  ┌────────▼──────────────┐
+│         src/app/            │  │       src/web/         │
+│  journal_app (FreeRTOS task)│  │  web_server            │
+│  journal_routes (screen nav)│  │  api_entries           │
+│  prompt_engine              │  │  api_prompts           │
+│  timeline_view              │  │  api_export            │
+│  entry_editor               │  │  static_editor/        │
+└──────────────┬──────────────┘  └────────┬──────────────┘
+               │                          │
+┌──────────────▼──────────────────────────▼───────────────┐
+│                       src/ui/                            │
+│  components  screen_home  screen_today  screen_timeline  │
+│  screen_prompt  screen_settings  screen_sync             │
+└──────────────┬──────────────────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────────────────┐
+│                     src/storage/                         │
+│  journal_fs      markdown_entry                          │
+│  metadata_index  export_zip                              │
+└──────────────┬──────────────────────────────────────────┘
+               │
+┌──────────────▼──────────────┐  ┌────────────────────────┐
+│       src/crypto/           │  │     src/platform/       │
+│  vault  key_derivation      │  │  buttons  display       │
+│  (Phase 4; stubs only now)  │  │  power    wifi          │
+└─────────────────────────────┘  │  rtc      sdcard        │
+                                 └────────────────────────┘
+```
+
+---
+
+## Boot & OTA Layer Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -81,9 +120,49 @@
 
 ---
 
-## Dependency Map: Call Order
+## Module Responsibilities
 
-The following describes which subsystem calls which, and in what order during a normal boot:
+### `src/platform/`
+Direct hardware abstraction. No business logic. Each module:
+- `buttons` — GPIO ISR + FreeRTOS queue; emits `button_event_t` with id, type (press/release/hold), duration
+- `display` — SPI EPD driver; 200×200 framebuffer; `display_set_pixel` / `display_draw_text` / `display_full_refresh`
+- `sdcard` — FATFS mount + helpers: mkdir_p, read, write, list, delete
+- `wifi` — SoftAP lifecycle; SSID = `PocketShrine-XXXX` (last 4 of MAC)
+- `rtc` — SNTP + NVS timestamp; datetime formatting helpers
+- `power` — light/deep sleep via `esp_sleep`; battery ADC percentage
+
+### `src/storage/`
+- `journal_fs` — path resolution; directory creation; entry enumeration by date/week
+- `markdown_entry` — serialize/deserialize `.md` files with YAML front matter (no external lib)
+- `metadata_index` — in-memory index of ≤512 entries rebuilt by scanning front matter; query by date/tag/favorite
+- `export_zip` — store-only ZIP writer (no external lib); outputs to `/sdcard/export/`
+
+### `src/crypto/`
+Plaintext pass-through by default (`vault_is_enabled()` = false). Wired but inactive until Phase 4.
+- `vault` — AES-256-GCM via mbedTLS; format: [12B IV][16B tag][ciphertext]; salt + enabled flag in NVS
+- `key_derivation` — PBKDF2-SHA256 via mbedTLS; 12-word BIP39-style recovery phrase
+
+### `src/app/`
+- `journal_app` — main FreeRTOS task; translates button events → route transitions → screen renders
+- `journal_routes` — screen router with depth-8 navigation stack; `routes_back()` pops
+- `prompt_engine` — cJSON parser for `default.json`; daily prompt = `prompts[day_of_year % count]`
+- `timeline_view` — scrollable entry list state backed by `metadata_index`
+- `entry_editor` — three modes: CHECKIN, FREEWRITE, PROMPTED; on-device fragment composer
+
+### `src/ui/`
+All screen functions: clear framebuffer → draw content → `display_full_refresh()`.
+E-paper rules: no animations, full-screen state changes only, large selectable rows (≥20 px).
+
+### `src/web/`
+- `web_server` — `esp_http_server`; registers URI handlers
+- `api_entries` — full CRUD + favorite toggle; cJSON serialization
+- `api_prompts` — list packs, today's prompt, upload new pack
+- `api_export` — streams ZIP; handles `.md` import
+- `static_editor/index.html` — self-contained SPA; zero CDN dependencies; vanilla JS
+
+---
+
+## app_main Call Order
 
 ```
 app_main()
@@ -118,7 +197,77 @@ app_main()
   │
   ├─► ota_scheduler_start()       — starts background manifest poll timer
   │
-  └─► [safe mode] safe_mode_loop() | [normal] app_loop()
+  └─► [safe mode] safe_mode_loop() | [normal] app_loop() → journal_app task
+```
+
+---
+
+## Data Flow: Button Press → Save Entry
+
+```
+[Physical Button]
+      │ GPIO ISR
+      ▼
+[buttons queue]  →  [journal_app task]
+                           │ button_event_t
+                           ▼
+                    [journal_routes]  →  current route determines handler
+                           │
+                    [entry_editor]   →  accumulates mood/energy/anxiety/fragments
+                           │
+                    [markdown_entry] →  serialize to .md with YAML front matter
+                           │
+                    [journal_fs]     →  write to /sdcard/journal/YYYY/MM/YYYY-MM-DD_HH-MM.md
+                           │
+                    [metadata_index] →  append to in-memory index
+                           │
+                    [screen_home]    →  full EPD refresh
+```
+
+---
+
+## SD Card File Layout
+
+```
+/sdcard/
+  journal/
+    2026/
+      05/
+        2026-05-17_21-04.md   ← plaintext Markdown entry
+        2026-05-18_09-30.md
+      import/                 ← drop .md files here for ingestion
+  prompts/
+    default.json              ← built-in prompt packs
+    custom-pack.json          ← user-added packs
+  config/
+    journal.toml              ← device configuration
+  export/
+    journal-export-2026-05-18.zip
+  web/
+    index.html                ← optional: override embedded SPA from SD
+```
+
+---
+
+## Entry File Format
+
+```markdown
+---
+id: 2026-05-17-2104
+created: 2026-05-17T21:04:00
+mood: 3
+energy: 2
+anxiety: 4
+body_feeling: neutral
+tags:
+  - tired
+  - tiny-win
+source: device
+encrypted: false
+favorite: false
+---
+
+Today I feel: heavy, scattered. One thing I need: rest. Tiny win: I kept going.
 ```
 
 ---
@@ -133,6 +282,37 @@ app_main()
 | `wifi_init()` | Health check stages 4 & 5 | Health check reads `wifi_get_state()` |
 | `nvs_init()` | All subsystems | Shared NVS handle passed to each subsystem init |
 | `http_server` | Web API handlers | Handlers call into OTA, health, display, diagnostics subsystems |
+| `buttons` | `journal_app` | FreeRTOS queue of `button_event_t` |
+| `metadata_index` | `timeline_view`, `api_entries` | In-memory index queried by date/tag/favorite |
+
+---
+
+## Web API Surface
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/` | Serve web editor SPA |
+| GET | `/api/entries` | List entry metadata |
+| GET | `/api/entries/:id` | Full entry JSON |
+| POST | `/api/entries` | Create entry |
+| PUT | `/api/entries/:id` | Update entry |
+| DELETE | `/api/entries/:id` | Delete entry |
+| POST | `/api/entries/:id/favorite` | Toggle favorite |
+| GET | `/api/prompts` | List packs + today's prompt |
+| GET | `/api/prompts/daily` | Today's prompt text only |
+| POST | `/api/prompts/upload` | Upload new prompt pack JSON |
+| GET | `/api/export` | Download ZIP of all entries |
+| POST | `/api/import` | Upload `.md` files for import |
+| GET | `/api/version` | Firmware version + OTA slot |
+| GET | `/api/health` | Health check status |
+| GET | `/api/logs` | Recent serial log buffer |
+| POST | `/api/ota/check` | Trigger manifest check |
+| POST | `/api/ota/apply` | Apply validated OTA update |
+| POST | `/api/ota/rollback` | Roll back to previous slot |
+| GET | `/api/display/status` | Display driver status |
+| POST | `/api/display/test-pattern` | Render a named test pattern |
+
+See `api.md` for the complete endpoint catalogue including display and dev endpoints.
 
 ---
 
@@ -154,7 +334,7 @@ or build change may touch these areas:
 
 ## Related Documents
 
-- `partition-table.md` — flash layout
+- `partition-table.md` — flash layout and OTA slot spec
 - `ota.md` — OTA state machine
 - `health-checks.md` — health check pipeline
 - `safe-mode.md` — safe mode boot path
@@ -162,3 +342,4 @@ or build change may touch these areas:
 - `dev-diagnostics.md` — diagnostics flags and endpoints
 - `api.md` — full HTTP API spec
 - `safety-rules.md` — invariants
+- `build-guide.md` — build and flash instructions
