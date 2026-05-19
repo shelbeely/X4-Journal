@@ -2,6 +2,10 @@
 #include "esp_err.h"
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
     BTN_LEFT,
     BTN_RIGHT,
@@ -30,3 +34,7 @@ typedef void (*button_callback_t)(button_event_t event, void *ctx);
 esp_err_t  buttons_init(button_callback_t cb, void *ctx);
 button_id_t buttons_poll(void);   /* blocking poll, 50 ms debounce */
 void        buttons_deinit(void);
+
+#ifdef __cplusplus
+}
+#endif

@@ -73,15 +73,19 @@ esp_err_t kdf_derive_key(const char *passphrase, const uint8_t *salt, size_t sal
 {
     if (!passphrase || !salt || !out_key) return ESP_ERR_INVALID_ARG;
 
-    const mbedtls_md_info_t *md = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-    if (!md) return ESP_FAIL;
+    mbedtls_md_context_t ctx;
+    mbedtls_md_init(&ctx);
+    int setup_ret = mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 1);
+    if (setup_ret != 0) { mbedtls_md_free(&ctx); return ESP_FAIL; }
 
-    int ret = mbedtls_pkcs5_pbkdf2_hmac_ext(
-        MBEDTLS_MD_SHA256,
+    int ret = mbedtls_pkcs5_pbkdf2_hmac(
+        &ctx,
         (const unsigned char *)passphrase, strlen(passphrase),
         salt, salt_len,
         iterations,
         KEY_LEN, out_key);
+
+    mbedtls_md_free(&ctx);
 
     if (ret != 0) {
         ESP_LOGE(TAG, "PBKDF2 failed: -0x%04x", -ret);

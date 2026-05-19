@@ -8,7 +8,7 @@ void screen_prompt_render(const char *prompt_text)
 {
     display_clear();
     ui_draw_header("Prompt");
-    ui_draw_wrapped_text(4, 22, DISPLAY_WIDTH - 8, prompt_text ? prompt_text : "");
+    ui_draw_wrapped_text(4, 22, X4_DISPLAY_WIDTH - 8, prompt_text ? prompt_text : "");
     ui_draw_status_bar(0, "");
     display_full_refresh();
 }
@@ -18,7 +18,7 @@ static void render_slider(const char *label, int value, int max_val)
     display_clear();
     ui_draw_header(label);
     int mid_y = 80;
-    ui_draw_progress_bar(10, mid_y, DISPLAY_WIDTH - 20, 20, value, max_val);
+    ui_draw_progress_bar(10, mid_y, X4_DISPLAY_WIDTH - 20, 20, value, max_val);
     char buf[8];
     snprintf(buf, sizeof(buf), "%d", value);
     ui_draw_centered_text(mid_y + 26, buf);
@@ -79,10 +79,10 @@ void screen_checkin_render_confirm(const journal_entry_t *e)
     display_draw_text(2, 22, line, 1);
 
     if (e->body[0]) {
-        ui_draw_wrapped_text(2, 36, DISPLAY_WIDTH - 4, e->body);
+        ui_draw_wrapped_text(2, 36, X4_DISPLAY_WIDTH - 4, e->body);
     }
 
-    ui_draw_centered_text(DISPLAY_HEIGHT - 30, "CONFIRM = save");
-    ui_draw_centered_text(DISPLAY_HEIGHT - 20, "BACK = edit");
+    ui_draw_centered_text(X4_DISPLAY_HEIGHT - 30, "CONFIRM = save");
+    ui_draw_centered_text(X4_DISPLAY_HEIGHT - 20, "BACK = edit");
     display_full_refresh();
 }

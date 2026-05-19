@@ -27,7 +27,7 @@ void screen_home_render(int selected_idx)
 
     /* daily prompt */
     const char *prompt = prompt_get_daily();
-    ui_draw_wrapped_text(4, 22, DISPLAY_WIDTH - 8, prompt);
+    ui_draw_wrapped_text(4, 22, X4_DISPLAY_WIDTH - 8, prompt);
 
     ui_draw_divider(52);
 
@@ -36,7 +36,7 @@ void screen_home_render(int selected_idx)
         ui_draw_menu_item(54 + i * 22, MENU_ITEMS[i], i == selected_idx);
     }
 
-    ui_draw_divider(DISPLAY_HEIGHT - 18);
+    ui_draw_divider(X4_DISPLAY_HEIGHT - 18);
 
     /* status bar */
     char last[32];

@@ -1,27 +1,10 @@
 #include "display.h"
-#include "esp_log.h"
-#include "driver/spi_master.h"
-#include "driver/gpio.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include "hardware_pins.h"
+#include <EInkDisplay.h>
+#include <new>
 #include <string.h>
 
-static const char *TAG = "display";
-
-/* SPI GPIO */
-#define PIN_MOSI  6
-#define PIN_CLK   7
-#define PIN_CS   10
-#define PIN_DC    2
-#define PIN_RST   3
-#define PIN_BUSY  4
-
-#define EPD_WIDTH  DISPLAY_WIDTH
-#define EPD_HEIGHT DISPLAY_HEIGHT
-#define FB_BYTES   (EPD_WIDTH * EPD_HEIGHT / 8)
-
-static spi_device_handle_t s_spi;
-static uint8_t s_fb[FB_BYTES];  /* 1-bit framebuffer: 1=black, 0=white */
+static EInkDisplay *s_eink = nullptr;
 
 /* ---- minimal 5x7 ASCII font (printable chars 32–126) ---- */
 static const uint8_t FONT5x7[][5] = {
@@ -122,172 +105,54 @@ static const uint8_t FONT5x7[][5] = {
     {0x08,0x08,0x2A,0x1C,0x08}, /* '~' */
 };
 
-/* ---- SPI helpers ---- */
-static void spi_write_byte(uint8_t b)
+/* Set a pixel directly in the EInkDisplay framebuffer.
+   EInkDisplay convention: 0 bit = black, 1 bit = white (row-major, MSB first).
+   The 'black' parameter is 1 to draw black (clears the bit) and 0 for white (sets the bit). */
+static void fb_set_pixel(uint8_t *fb, int x, int y, uint8_t black)
 {
-    spi_transaction_t t = {
-        .length    = 8,
-        .tx_buffer = &b,
-    };
-    spi_device_polling_transmit(s_spi, &t);
-}
-
-static void epd_cmd(uint8_t cmd)
-{
-    gpio_set_level(PIN_DC, 0);
-    gpio_set_level(PIN_CS, 0);
-    spi_write_byte(cmd);
-    gpio_set_level(PIN_CS, 1);
-}
-
-static void epd_data(uint8_t data)
-{
-    gpio_set_level(PIN_DC, 1);
-    gpio_set_level(PIN_CS, 0);
-    spi_write_byte(data);
-    gpio_set_level(PIN_CS, 1);
-}
-
-static void epd_wait_busy(void)
-{
-    while (gpio_get_level(PIN_BUSY) == 1) {
-        vTaskDelay(pdMS_TO_TICKS(10));
+    if (x < 0 || x >= X4_DISPLAY_WIDTH || y < 0 || y >= X4_DISPLAY_HEIGHT) return;
+    int stride    = X4_DISPLAY_WIDTH / 8;
+    int byte_idx  = y * stride + x / 8;
+    int bit_idx   = 7 - (x % 8);
+    if (black) {
+        fb[byte_idx] &= ~(1 << bit_idx);
+    } else {
+        fb[byte_idx] |=  (1 << bit_idx);
     }
-}
-
-static void epd_hw_reset(void)
-{
-    gpio_set_level(PIN_RST, 1);
-    vTaskDelay(pdMS_TO_TICKS(10));
-    gpio_set_level(PIN_RST, 0);
-    vTaskDelay(pdMS_TO_TICKS(10));
-    gpio_set_level(PIN_RST, 1);
-    vTaskDelay(pdMS_TO_TICKS(10));
-}
-
-/* ---- EPD init sequence (GDEW0154M10-style) ---- */
-static void epd_init_sequence(void)
-{
-    epd_hw_reset();
-    epd_wait_busy();
-
-    epd_cmd(0x12);   /* soft reset */
-    epd_wait_busy();
-
-    epd_cmd(0x01);   /* driver output control */
-    epd_data(0xC7);
-    epd_data(0x00);
-    epd_data(0x01);
-
-    epd_cmd(0x11);   /* data entry mode: X inc, Y inc, addr updated in X */
-    epd_data(0x01);
-
-    epd_cmd(0x44);   /* set RAM X address start/end (byte units, 0–24 = 25 bytes = 200 px) */
-    epd_data(0x00);
-    epd_data(0x18);
-
-    epd_cmd(0x45);   /* set RAM Y address start/end */
-    epd_data(0xC7);
-    epd_data(0x00);
-    epd_data(0x00);
-    epd_data(0x00);
-
-    epd_cmd(0x3C);   /* border waveform */
-    epd_data(0x05);
-
-    epd_cmd(0x18);   /* read built-in temperature sensor */
-    epd_data(0x80);
-
-    epd_cmd(0x4E);   /* set RAM X address counter */
-    epd_data(0x00);
-    epd_cmd(0x4F);   /* set RAM Y address counter */
-    epd_data(0xC7);
-    epd_data(0x00);
-
-    epd_wait_busy();
 }
 
 esp_err_t display_init(void)
 {
-    /* configure non-SPI pins */
-    gpio_config_t io = {
-        .pin_bit_mask = (1ULL << PIN_DC) | (1ULL << PIN_RST) | (1ULL << PIN_CS),
-        .mode         = GPIO_MODE_OUTPUT,
-    };
-    gpio_config(&io);
-    gpio_config_t bi = {
-        .pin_bit_mask = (1ULL << PIN_BUSY),
-        .mode         = GPIO_MODE_INPUT,
-    };
-    gpio_config(&bi);
-
-    /* SPI bus */
-    spi_bus_config_t buscfg = {
-        .mosi_io_num   = PIN_MOSI,
-        .miso_io_num   = -1,
-        .sclk_io_num   = PIN_CLK,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-        .max_transfer_sz = FB_BYTES + 8,
-    };
-    esp_err_t ret = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
-    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) return ret;
-
-    spi_device_interface_config_t devcfg = {
-        .clock_speed_hz = 2000000,
-        .mode           = 0,
-        .spics_io_num   = -1,  /* manual CS */
-        .queue_size     = 4,
-    };
-    ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &devcfg, &s_spi));
-
-    memset(s_fb, 0xFF, sizeof(s_fb)); /* all white */
-    epd_init_sequence();
-    ESP_LOGI(TAG, "display_init ok");
+    if (!s_eink) {
+        s_eink = new (std::nothrow) EInkDisplay(X4_SPI_SCLK, X4_SPI_MOSI, X4_EPD_CS, X4_EPD_DC, X4_EPD_RST, X4_EPD_BUSY);
+        if (!s_eink) return ESP_ERR_NO_MEM;
+    }
+    s_eink->begin();
+    s_eink->clearScreen(0xFF);
     return ESP_OK;
 }
 
 void display_clear(void)
 {
-    memset(s_fb, 0xFF, sizeof(s_fb));
-}
-
-void display_set_pixel(int x, int y, uint8_t black)
-{
-    if (x < 0 || x >= EPD_WIDTH || y < 0 || y >= EPD_HEIGHT) return;
-    int byte_idx = (y * EPD_WIDTH + x) / 8;
-    int bit_idx  = 7 - ((y * EPD_WIDTH + x) % 8);
-    if (black) {
-        s_fb[byte_idx] &= ~(1 << bit_idx);
-    } else {
-        s_fb[byte_idx] |=  (1 << bit_idx);
-    }
+    s_eink->clearScreen(0xFF); /* 0xFF = all white */
 }
 
 void display_full_refresh(void)
 {
-    /* write framebuffer to EPD RAM */
-    epd_cmd(0x24);  /* write RAM (BW) */
-    gpio_set_level(PIN_DC, 1);
-    gpio_set_level(PIN_CS, 0);
-    spi_transaction_t t = {
-        .length    = FB_BYTES * 8,
-        .tx_buffer = s_fb,
-    };
-    spi_device_polling_transmit(s_spi, &t);
-    gpio_set_level(PIN_CS, 1);
+    s_eink->displayBuffer(EInkDisplay::FULL_REFRESH);
+}
 
-    epd_cmd(0x22);  /* display update sequence: load LUT, enable clock, display */
-    epd_data(0xF7);
-    epd_cmd(0x20);  /* master activation */
-    epd_wait_busy();
+void display_set_pixel(int x, int y, uint8_t black)
+{
+    fb_set_pixel(s_eink->getFrameBuffer(), x, y, black);
 }
 
 void display_draw_text(int x, int y, const char *text, int font_size)
 {
     if (!text) return;
-    int scale = (font_size < 2) ? 1 : 2;  /* simple 1x or 2x scaling */
-    int cx = x;
+    uint8_t *fb  = s_eink->getFrameBuffer();
+    int scale    = (font_size < 2) ? 1 : 2;
+    int cx       = x;
     for (const char *p = text; *p; p++) {
         unsigned char c = (unsigned char)*p;
         if (c < 32 || c > 126) { cx += (5 + 1) * scale; continue; }
@@ -297,8 +162,8 @@ void display_draw_text(int x, int y, const char *text, int font_size)
                 uint8_t bit = (col[col_i] >> row_i) & 1;
                 for (int sy = 0; sy < scale; sy++) {
                     for (int sx = 0; sx < scale; sx++) {
-                        display_set_pixel(cx + col_i * scale + sx,
-                                          y  + row_i * scale + sy, bit);
+                        fb_set_pixel(fb, cx + col_i * scale + sx,
+                                     y + row_i * scale + sy, bit);
                     }
                 }
             }
@@ -309,12 +174,12 @@ void display_draw_text(int x, int y, const char *text, int font_size)
 
 void display_draw_line(int x0, int y0, int x1, int y1)
 {
-    /* Bresenham */
+    uint8_t *fb = s_eink->getFrameBuffer();
     int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
     int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
     int err = dx + dy;
     while (1) {
-        display_set_pixel(x0, y0, 1);
+        fb_set_pixel(fb, x0, y0, 1);
         if (x0 == x1 && y0 == y1) break;
         int e2 = 2 * err;
         if (e2 >= dy) { err += dy; x0 += sx; }
@@ -339,24 +204,24 @@ void display_draw_rect(int x, int y, int w, int h, int filled)
 void display_draw_image(int x, int y, int w, int h, const uint8_t *bitmap)
 {
     if (!bitmap) return;
+    uint8_t *fb = s_eink->getFrameBuffer();
     for (int row = 0; row < h; row++) {
         for (int col = 0; col < w; col++) {
-            int bit_pos  = row * w + col;
-            uint8_t byte = bitmap[bit_pos / 8];
-            uint8_t bit  = (byte >> (7 - (bit_pos % 8))) & 1;
-            display_set_pixel(x + col, y + row, bit);
+            int     bit_pos = row * w + col;
+            uint8_t byte    = bitmap[bit_pos / 8];
+            uint8_t bit     = (byte >> (7 - (bit_pos % 8))) & 1;
+            fb_set_pixel(fb, x + col, y + row, bit);
         }
     }
 }
 
 void display_sleep(void)
 {
-    epd_cmd(0x10);
-    epd_data(0x01);
-    vTaskDelay(pdMS_TO_TICKS(100));
+    s_eink->deepSleep();
 }
 
 void display_wakeup(void)
 {
-    epd_init_sequence();
+    s_eink->begin();
+    s_eink->clearScreen(0xFF);
 }

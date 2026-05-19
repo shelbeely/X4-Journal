@@ -1,4 +1,8 @@
 #pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "markdown_entry.h"
 #include "esp_err.h"
 
@@ -28,3 +32,7 @@ esp_err_t             entry_editor_add_tag(const char *tag);
 esp_err_t             entry_editor_save(char *saved_id_out, size_t len);
 esp_err_t             entry_editor_discard(void);
 const journal_entry_t *entry_editor_get_current(void);
+
+#ifdef __cplusplus
+}
+#endif

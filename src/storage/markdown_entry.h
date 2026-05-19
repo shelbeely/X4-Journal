@@ -1,4 +1,8 @@
 #pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "esp_err.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -34,3 +38,7 @@ esp_err_t    entry_save(const journal_entry_t *e);
 esp_err_t    entry_load(const char *id, journal_entry_t *e);
 esp_err_t    entry_add_tag(journal_entry_t *e, const char *tag);
 const char  *entry_get_preview(const journal_entry_t *e);
+
+#ifdef __cplusplus
+}
+#endif
