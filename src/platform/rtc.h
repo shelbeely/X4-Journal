@@ -17,7 +17,7 @@ typedef struct {
     int weekday;  /* 0=Sunday */
 } rtc_datetime_t;
 
-esp_err_t rtc_init(void);
+esp_err_t rtcdrv_init(void);
 esp_err_t rtc_get_datetime(rtc_datetime_t *dt);
 esp_err_t rtc_set_datetime(const rtc_datetime_t *dt);
 uint32_t  rtc_get_unix(void);

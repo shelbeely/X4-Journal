@@ -6,8 +6,8 @@ extern "C" {
 #include "esp_err.h"
 #include <stddef.h>
 
-#define MAX_PROMPTS_PER_PACK 64
-#define MAX_PACKS            16
+#define MAX_PROMPTS_PER_PACK 32
+#define MAX_PACKS             4
 
 typedef struct {
     char id[32];

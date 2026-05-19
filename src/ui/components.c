@@ -8,13 +8,13 @@
 
 void ui_draw_header(const char *title)
 {
-    display_draw_rect(0, 0, DISPLAY_WIDTH, 18, 1);  /* black background */
+    display_draw_rect(0, 0, X4_DISPLAY_WIDTH, 18, 1);  /* black background */
     /* invert: draw white text on black — simple approach: draw text then invert region
        For simplicity draw with XOR trick: draw text in black on a separate pass.
        Since we can't XOR easily, just draw rect then draw text normally (black on black)
        and rely on caller to invert. Instead, leave rect white and draw border: */
-    display_draw_rect(0, 0, DISPLAY_WIDTH, 18, 0);
-    display_draw_line(0, 17, DISPLAY_WIDTH - 1, 17);
+    display_draw_rect(0, 0, X4_DISPLAY_WIDTH, 18, 0);
+    display_draw_line(0, 17, X4_DISPLAY_WIDTH - 1, 17);
     if (title) {
         display_draw_text(4, 4, title, FONT_MD);
     }
@@ -22,8 +22,8 @@ void ui_draw_header(const char *title)
 
 void ui_draw_status_bar(uint8_t battery_pct, const char *last_entry)
 {
-    int y = DISPLAY_HEIGHT - 18;
-    display_draw_line(0, y, DISPLAY_WIDTH - 1, y);
+    int y = X4_DISPLAY_HEIGHT - 18;
+    display_draw_line(0, y, X4_DISPLAY_WIDTH - 1, y);
     char buf[48];
     snprintf(buf, sizeof(buf), "Bat:%d%%", battery_pct);
     display_draw_text(2, y + 5, buf, FONT_SM);
@@ -35,13 +35,13 @@ void ui_draw_status_bar(uint8_t battery_pct, const char *last_entry)
 void ui_draw_menu_item(int y, const char *label, bool selected)
 {
     if (selected) {
-        display_draw_rect(0, y, DISPLAY_WIDTH, 22, 1);
+        display_draw_rect(0, y, X4_DISPLAY_WIDTH, 22, 1);
         /* draw inverted text: since display_draw_text draws black pixels on white bg,
            we draw the rect first then text — pixels that match will cancel.
            For true invert we'd need per-pixel XOR; instead draw white text effect
            by drawing rect then text — text pixels set to black over black = invisible.
            Workaround: draw selection indicator with arrow instead */
-        display_draw_rect(0, y, DISPLAY_WIDTH, 22, 0);  /* outline */
+        display_draw_rect(0, y, X4_DISPLAY_WIDTH, 22, 0);  /* outline */
         display_draw_text(2, y + 7, ">", FONT_SM);
         display_draw_text(12, y + 7, label ? label : "", FONT_SM);
     } else {
@@ -51,7 +51,7 @@ void ui_draw_menu_item(int y, const char *label, bool selected)
 
 void ui_draw_divider(int y)
 {
-    display_draw_line(0, y, DISPLAY_WIDTH - 1, y);
+    display_draw_line(0, y, X4_DISPLAY_WIDTH - 1, y);
 }
 
 void ui_draw_progress_bar(int x, int y, int w, int h, int value, int max_value)
@@ -83,7 +83,7 @@ void ui_draw_centered_text(int y, const char *text)
 {
     if (!text) return;
     int len = strlen(text);
-    int x = (DISPLAY_WIDTH - len * 7) / 2;
+    int x = (X4_DISPLAY_WIDTH - len * 7) / 2;
     if (x < 0) x = 0;
     display_draw_text(x, y, text, FONT_SM);
 }
@@ -97,7 +97,7 @@ void ui_draw_wrapped_text(int x, int y, int max_width, const char *text)
     int cy = y;
     const char *p = text;
 
-    while (*p && cy < DISPLAY_HEIGHT - 20) {
+    while (*p && cy < X4_DISPLAY_HEIGHT - 20) {
         int n = 0;
         /* find last space before chars_per_line */
         const char *end = p;

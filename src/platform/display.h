@@ -6,8 +6,8 @@
 extern "C" {
 #endif
 
-#define DISPLAY_WIDTH  800
-#define DISPLAY_HEIGHT 480
+#define X4_DISPLAY_WIDTH  800
+#define X4_DISPLAY_HEIGHT 480
 
 esp_err_t display_init(void);
 void      display_clear(void);

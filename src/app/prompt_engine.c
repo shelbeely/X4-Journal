@@ -3,6 +3,7 @@
 #include "sdcard.h"
 #include "rtc.h"
 #include "esp_log.h"
+#include "esp_random.h"
 #include "cJSON.h"
 #include <string.h>
 #include <stdlib.h>

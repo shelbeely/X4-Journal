@@ -6,7 +6,7 @@ extern "C" {
 #include "markdown_entry.h"
 #include "esp_err.h"
 
-#define INDEX_MAX_ENTRIES 512
+#define INDEX_MAX_ENTRIES 128
 
 typedef struct {
     char id[32];

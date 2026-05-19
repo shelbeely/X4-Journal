@@ -1,16 +1,17 @@
+/* rtc.cpp — Real-time clock platform driver.
+ * Uses Arduino Preferences (wraps ESP-IDF NVS) to persist the last-known time
+ * across reboots so the clock is reasonable before any SNTP sync.
+ */
 #include "rtc.h"
+#include <Preferences.h>
 #include "esp_log.h"
-#include "esp_sntp.h"
-#include "nvs_flash.h"
-#include "nvs.h"
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
 
 static const char *TAG = "rtc";
 
-#define NVS_NAMESPACE "rtc"
-#define NVS_KEY_UNIX  "unix"
+static Preferences s_prefs;
 
 static const char *WEEKDAY_NAMES[] = {
     "Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"
@@ -20,26 +21,20 @@ static const char *MONTH_NAMES[] = {
     "July","August","September","October","November","December"
 };
 
-esp_err_t rtc_init(void)
+esp_err_t rtcdrv_init(void)
 {
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        nvs_flash_erase();
-        nvs_flash_init();
+    /* Restore last-known time from Preferences so clock is sane before SNTP */
+    s_prefs.begin("rtc", /*readOnly=*/true);
+    uint32_t saved = s_prefs.getUInt("unix", 0);
+    s_prefs.end();
+
+    if (saved > 1000000000u) {
+        struct timeval tv = { .tv_sec = (time_t)saved, .tv_usec = 0 };
+        settimeofday(&tv, nullptr);
+        ESP_LOGI(TAG, "rtc: restored unix=%lu", (unsigned long)saved);
     }
 
-    /* restore last-known time from NVS so clock is reasonable before SNTP */
-    nvs_handle_t h;
-    if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &h) == ESP_OK) {
-        uint32_t saved = 0;
-        if (nvs_get_u32(h, NVS_KEY_UNIX, &saved) == ESP_OK && saved > 1000000000u) {
-            struct timeval tv = { .tv_sec = (time_t)saved, .tv_usec = 0 };
-            settimeofday(&tv, NULL);
-        }
-        nvs_close(h);
-    }
-
-    ESP_LOGI(TAG, "rtc_init ok");
+    ESP_LOGI(TAG, "rtcdrv_init ok");
     return ESP_OK;
 }
 
@@ -64,24 +59,22 @@ esp_err_t rtc_set_datetime(const rtc_datetime_t *dt)
 {
     if (!dt) return ESP_ERR_INVALID_ARG;
     struct tm t = {
-        .tm_year = dt->year - 1900,
-        .tm_mon  = dt->month - 1,
-        .tm_mday = dt->day,
-        .tm_hour = dt->hour,
-        .tm_min  = dt->minute,
         .tm_sec  = dt->second,
+        .tm_min  = dt->minute,
+        .tm_hour = dt->hour,
+        .tm_mday = dt->day,
+        .tm_mon  = dt->month - 1,
+        .tm_year = dt->year - 1900,
     };
     time_t unix_t = mktime(&t);
     struct timeval tv = { .tv_sec = unix_t, .tv_usec = 0 };
-    settimeofday(&tv, NULL);
+    settimeofday(&tv, nullptr);
 
-    /* persist to NVS */
-    nvs_handle_t h;
-    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h) == ESP_OK) {
-        nvs_set_u32(h, NVS_KEY_UNIX, (uint32_t)unix_t);
-        nvs_commit(h);
-        nvs_close(h);
-    }
+    /* Persist to Preferences */
+    s_prefs.begin("rtc", /*readOnly=*/false);
+    s_prefs.putUInt("unix", (uint32_t)unix_t);
+    s_prefs.end();
+
     return ESP_OK;
 }
 

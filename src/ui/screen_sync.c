@@ -17,8 +17,8 @@ void screen_sync_render(const char *ssid, const char *ip)
     snprintf(url, sizeof(url), "http://%s", ip ? ip : "192.168.4.1");
     ui_draw_centered_text(78, url);
 
-    ui_draw_divider(DISPLAY_HEIGHT - 20);
-    ui_draw_centered_text(DISPLAY_HEIGHT - 16, "BACK to stop server");
+    ui_draw_divider(X4_DISPLAY_HEIGHT - 20);
+    ui_draw_centered_text(X4_DISPLAY_HEIGHT - 16, "BACK to stop server");
 
     display_full_refresh();
 }

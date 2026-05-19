@@ -74,7 +74,7 @@ void screen_timeline_entry_render(const journal_entry_t *e)
 
     ui_draw_divider(y);
     y += 4;
-    ui_draw_wrapped_text(2, y, DISPLAY_WIDTH - 4, e->body);
+    ui_draw_wrapped_text(2, y, X4_DISPLAY_WIDTH - 4, e->body);
 
     display_full_refresh();
 }

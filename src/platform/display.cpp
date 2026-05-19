@@ -3,7 +3,7 @@
 #include <EInkDisplay.h>
 #include <string.h>
 
-static EInkDisplay s_eink(X4_SPI_SCLK, X4_SPI_MOSI, X4_EPD_CS, X4_EPD_DC, X4_EPD_RST, X4_EPD_BUSY);
+static EInkDisplay *s_eink = nullptr;
 
 /* ---- minimal 5x7 ASCII font (printable chars 32–126) ---- */
 static const uint8_t FONT5x7[][5] = {
@@ -109,8 +109,8 @@ static const uint8_t FONT5x7[][5] = {
    The 'black' parameter is 1 to draw black (clears the bit) and 0 for white (sets the bit). */
 static void fb_set_pixel(uint8_t *fb, int x, int y, uint8_t black)
 {
-    if (x < 0 || x >= DISPLAY_WIDTH || y < 0 || y >= DISPLAY_HEIGHT) return;
-    int stride    = DISPLAY_WIDTH / 8;
+    if (x < 0 || x >= X4_DISPLAY_WIDTH || y < 0 || y >= X4_DISPLAY_HEIGHT) return;
+    int stride    = X4_DISPLAY_WIDTH / 8;
     int byte_idx  = y * stride + x / 8;
     int bit_idx   = 7 - (x % 8);
     if (black) {
@@ -122,30 +122,34 @@ static void fb_set_pixel(uint8_t *fb, int x, int y, uint8_t black)
 
 esp_err_t display_init(void)
 {
-    s_eink.begin();
-    s_eink.clearScreen(0xFF);
+    if (!s_eink) {
+        s_eink = new EInkDisplay(X4_SPI_SCLK, X4_SPI_MOSI, X4_EPD_CS, X4_EPD_DC, X4_EPD_RST, X4_EPD_BUSY);
+        if (!s_eink) return ESP_ERR_NO_MEM;
+    }
+    s_eink->begin();
+    s_eink->clearScreen(0xFF);
     return ESP_OK;
 }
 
 void display_clear(void)
 {
-    s_eink.clearScreen(0xFF); /* 0xFF = all white */
+    s_eink->clearScreen(0xFF); /* 0xFF = all white */
 }
 
 void display_full_refresh(void)
 {
-    s_eink.displayBuffer(EInkDisplay::FULL_REFRESH);
+    s_eink->displayBuffer(EInkDisplay::FULL_REFRESH);
 }
 
 void display_set_pixel(int x, int y, uint8_t black)
 {
-    fb_set_pixel(s_eink.getFrameBuffer(), x, y, black);
+    fb_set_pixel(s_eink->getFrameBuffer(), x, y, black);
 }
 
 void display_draw_text(int x, int y, const char *text, int font_size)
 {
     if (!text) return;
-    uint8_t *fb  = s_eink.getFrameBuffer();
+    uint8_t *fb  = s_eink->getFrameBuffer();
     int scale    = (font_size < 2) ? 1 : 2;
     int cx       = x;
     for (const char *p = text; *p; p++) {
@@ -169,7 +173,7 @@ void display_draw_text(int x, int y, const char *text, int font_size)
 
 void display_draw_line(int x0, int y0, int x1, int y1)
 {
-    uint8_t *fb = s_eink.getFrameBuffer();
+    uint8_t *fb = s_eink->getFrameBuffer();
     int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
     int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
     int err = dx + dy;
@@ -199,7 +203,7 @@ void display_draw_rect(int x, int y, int w, int h, int filled)
 void display_draw_image(int x, int y, int w, int h, const uint8_t *bitmap)
 {
     if (!bitmap) return;
-    uint8_t *fb = s_eink.getFrameBuffer();
+    uint8_t *fb = s_eink->getFrameBuffer();
     for (int row = 0; row < h; row++) {
         for (int col = 0; col < w; col++) {
             int     bit_pos = row * w + col;
@@ -212,11 +216,11 @@ void display_draw_image(int x, int y, int w, int h, const uint8_t *bitmap)
 
 void display_sleep(void)
 {
-    s_eink.deepSleep();
+    s_eink->deepSleep();
 }
 
 void display_wakeup(void)
 {
-    s_eink.begin();
-    s_eink.clearScreen(0xFF);
+    s_eink->begin();
+    s_eink->clearScreen(0xFF);
 }

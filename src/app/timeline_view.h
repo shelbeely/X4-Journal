@@ -3,7 +3,7 @@
 #include "esp_err.h"
 
 typedef struct {
-    entry_meta_t entries[64];
+    entry_meta_t entries[32];
     int          count;
     int          selected_idx;
     int          scroll_offset;
