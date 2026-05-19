@@ -1,16 +1,9 @@
 #include "display.h"
+#include "hardware_pins.h"
 #include <EInkDisplay.h>
 #include <string.h>
 
-/* X4 hardware SPI pins (from community-sdk EInkDisplay README) */
-#define EPD_SCLK  8
-#define EPD_MOSI 10
-#define EPD_CS   21
-#define EPD_DC    4
-#define EPD_RST   5
-#define EPD_BUSY  6
-
-static EInkDisplay s_eink(EPD_SCLK, EPD_MOSI, EPD_CS, EPD_DC, EPD_RST, EPD_BUSY);
+static EInkDisplay s_eink(X4_SPI_SCLK, X4_SPI_MOSI, X4_EPD_CS, X4_EPD_DC, X4_EPD_RST, X4_EPD_BUSY);
 
 /* ---- minimal 5x7 ASCII font (printable chars 32–126) ---- */
 static const uint8_t FONT5x7[][5] = {
@@ -112,7 +105,8 @@ static const uint8_t FONT5x7[][5] = {
 };
 
 /* Set a pixel directly in the EInkDisplay framebuffer.
-   EInkDisplay convention: 0 bit = black, 1 bit = white (row-major, MSB first). */
+   EInkDisplay convention: 0 bit = black, 1 bit = white (row-major, MSB first).
+   The 'black' parameter is 1 to draw black (clears the bit) and 0 for white (sets the bit). */
 static void fb_set_pixel(uint8_t *fb, int x, int y, uint8_t black)
 {
     if (x < 0 || x >= DISPLAY_WIDTH || y < 0 || y >= DISPLAY_HEIGHT) return;

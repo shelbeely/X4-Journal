@@ -1,19 +1,14 @@
 #include "power.h"
+#include "hardware_pins.h"
 #include <BatteryMonitor.h>
+#include <InputManager.h>
 #include "esp_log.h"
 #include "esp_sleep.h"
 #include "driver/gpio.h"
 
 static const char *TAG = "power";
 
-/* Battery ADC pin (GPIO1 = ADC channel 0 on ESP32-C3) and 2:1 voltage divider */
-#define BAT_ADC_PIN      1
-#define BAT_DIVIDER      2.0f
-
-/* GPIO used to wake from light sleep (power button) */
-#define GPIO_POWER_WAKE 3  /* InputManager::POWER_BUTTON_PIN */
-
-static BatteryMonitor s_bat(BAT_ADC_PIN, BAT_DIVIDER);
+static BatteryMonitor s_bat(X4_BAT_ADC_PIN, X4_BAT_DIVIDER);
 static power_state_t  s_state = POWER_STATE_ACTIVE;
 
 esp_err_t power_init(void)
@@ -42,7 +37,7 @@ void power_sleep(void)
 {
     s_state = POWER_STATE_SLEEP;
     esp_sleep_enable_gpio_wakeup();
-    gpio_wakeup_enable((gpio_num_t)GPIO_POWER_WAKE, GPIO_INTR_LOW_LEVEL);
+    gpio_wakeup_enable((gpio_num_t)InputManager::POWER_BUTTON_PIN, GPIO_INTR_LOW_LEVEL);
     esp_light_sleep_start();
     /* execution resumes here on wake */
     s_state = POWER_STATE_ACTIVE;

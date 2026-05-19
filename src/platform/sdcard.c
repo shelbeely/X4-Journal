@@ -1,4 +1,5 @@
 #include "sdcard.h"
+#include "hardware_pins.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
 #include "driver/sdspi_host.h"
@@ -14,10 +15,10 @@
 static const char *TAG = "sdcard";
 
 #define MOUNT_POINT "/sdcard"
-#define PIN_MISO  5
-#define PIN_MOSI 10
-#define PIN_CLK   8
-#define PIN_CS   12
+#define PIN_MISO  X4_SPI_MISO
+#define PIN_MOSI  X4_SPI_MOSI
+#define PIN_CLK   X4_SPI_SCLK
+#define PIN_CS    X4_SD_CS
 
 static bool s_mounted = false;
 static sdmmc_card_t *s_card = NULL;

@@ -12,7 +12,8 @@ static const char *TAG = "buttons";
 static InputManager      s_input;
 static button_callback_t s_cb      = nullptr;
 static void             *s_cb_ctx  = nullptr;
-static QueueHandle_t     s_poll_q;  /* used by buttons_poll() */
+static QueueHandle_t     s_poll_q;  /* used by buttons_poll() — PRESS events only */
+static TaskHandle_t      s_task    = nullptr;
 
 /* Maps InputManager button index → button_id_t */
 static const button_id_t ID_MAP[] = {
@@ -45,6 +46,7 @@ static void button_task(void *arg)
                 s_hold_fired[i] = false;
                 button_event_t ev = { id, BTN_EVENT_PRESS, 0 };
                 if (s_cb) s_cb(ev, s_cb_ctx);
+                /* Only PRESS events go into the poll queue */
                 xQueueSend(s_poll_q, &ev, 0);
             }
 
@@ -53,7 +55,7 @@ static void button_task(void *arg)
                 s_hold_fired[i] = false;
                 button_event_t ev = { id, BTN_EVENT_RELEASE, dur };
                 if (s_cb) s_cb(ev, s_cb_ctx);
-                xQueueSend(s_poll_q, &ev, 0);
+                /* RELEASE events are only delivered via callback, not the poll queue */
             }
 
             /* Hold detection */
@@ -84,7 +86,7 @@ esp_err_t buttons_init(button_callback_t cb, void *ctx)
     s_poll_q = xQueueCreate(16, sizeof(button_event_t));
     if (!s_poll_q) return ESP_ERR_NO_MEM;
 
-    xTaskCreate(button_task, "buttons", 4096, NULL, 5, NULL);
+    xTaskCreate(button_task, "buttons", 4096, NULL, 5, &s_task);
     ESP_LOGI(TAG, "buttons_init ok");
     return ESP_OK;
 }
@@ -93,14 +95,17 @@ button_id_t buttons_poll(void)
 {
     button_event_t ev;
     if (xQueueReceive(s_poll_q, &ev, pdMS_TO_TICKS(50))) {
-        if (ev.type == BTN_EVENT_PRESS) return ev.id;
+        return ev.id;
     }
     return BTN_NONE;
 }
 
 void buttons_deinit(void)
 {
-    /* InputManager has no explicit teardown; just clear state */
+    if (s_task) {
+        vTaskDelete(s_task);
+        s_task = nullptr;
+    }
     s_cb     = nullptr;
     s_cb_ctx = nullptr;
     if (s_poll_q) {
@@ -108,3 +113,4 @@ void buttons_deinit(void)
         s_poll_q = nullptr;
     }
 }
+

@@ -102,6 +102,7 @@ void setup(void)
 
 void loop(void)
 {
-    /* All application logic runs in the FreeRTOS journal_app_task. */
-    vTaskDelay(portMAX_DELAY);
+    /* All application logic runs in the FreeRTOS journal_app_task.
+       Return periodically so the Arduino core can run its housekeeping. */
+    vTaskDelay(pdMS_TO_TICKS(1000));
 }
