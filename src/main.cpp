@@ -26,7 +26,7 @@ void setup() {
     // Initialise display
     display.begin();
 
-    // Initialise SD card (optional – continues if no card is present)
+    // Initialise SD card via the SDK singleton (SdMan = SDCardManager::getInstance())
     if (!SdMan.begin()) {
         Serial.println("SD card not found – continuing without it.");
     }
