@@ -7,16 +7,11 @@ set -euo pipefail
 
 echo "[agent_build_release] Starting release firmware build (all diagnostics disabled)..."
 
-idf.py \
-  -DCONFIG_X4_DEV_DIAGNOSTICS=n \
-  -DCONFIG_X4_AGENT_DIAGNOSTICS=n \
-  -DCONFIG_X4_VERBOSE_DISPLAY_DIAGNOSTICS=n \
-  -DCONFIG_X4_DIAG_HTTP_API=n \
-  build
+pio run --environment x4_journal
 
-BIN_PATH=$(find build -maxdepth 1 -name "*.bin" | head -n 1)
+BIN_PATH=$(find .pio/build/x4_journal -maxdepth 1 -name "*.bin" | head -n 1)
 if [ -z "$BIN_PATH" ]; then
-  echo "[agent_build_release] ERROR: No .bin file found in ./build after build." >&2
+  echo "[agent_build_release] ERROR: No .bin file found in .pio/build/x4_journal after build." >&2
   exit 1
 fi
 

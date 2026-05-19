@@ -7,9 +7,9 @@ A privacy-first, offline reflective journal firmware for the **xteink X4** — a
 | Component | Details |
 |---|---|
 | MCU | ESP32-C3 (RISC-V, 160 MHz, 400 KB SRAM, 4 MB flash) |
-| Display | E-paper 200×200 (GDEW0154M10-compatible), SPI |
+| Display | E-paper 800×480 (SSD1677-based), SPI |
 | Storage | MicroSD via SPI, FAT32 |
-| Buttons | 7 × GPIO (LEFT, RIGHT, CONFIRM, BACK, VOL+, VOL−, POWER) |
+| Buttons | 7 buttons: ADC resistor-ladder (GPIO1 + GPIO2) + power button (GPIO3) |
 | Wireless | Wi-Fi 2.4 GHz (SoftAP mode for local web editor) |
 | Battery | 3.7 V LiPo, ADC monitoring |
 
@@ -68,7 +68,7 @@ src/
   web/       — web_server, api_entries, api_prompts, api_export,
                static_editor/index.html
   platform/  — buttons, display, power, wifi, rtc, sdcard
-  main.c
+  main.cpp
 
 docs/
   hardware.md      — pin map, display driver, button layout

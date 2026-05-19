@@ -7,11 +7,11 @@ set -euo pipefail
 
 echo "[agent_build] Starting production firmware build..."
 
-idf.py build
+pio run --environment x4_journal
 
-BIN_PATH=$(find build -maxdepth 1 -name "*.bin" | head -n 1)
+BIN_PATH=$(find .pio/build/x4_journal -maxdepth 1 -name "*.bin" | head -n 1)
 if [ -z "$BIN_PATH" ]; then
-  echo "[agent_build] ERROR: No .bin file found in ./build after build." >&2
+  echo "[agent_build] ERROR: No .bin file found in .pio/build/x4_journal after build." >&2
   exit 1
 fi
 
