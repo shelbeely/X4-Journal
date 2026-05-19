@@ -126,8 +126,13 @@ esp_err_t wifi_sta_connect_saved(uint32_t timeout_ms)
     size_t pass_len = sizeof(pass);
 
     ret = nvs_get_str(h, STA_KEY_SSID, ssid, &ssid_len);
-    nvs_get_str(h, STA_KEY_PASS, pass, &pass_len); /* ignore error for pass */
+    esp_err_t pass_ret = nvs_get_str(h, STA_KEY_PASS, pass, &pass_len);
     nvs_close(h);
+
+    if (pass_ret != ESP_OK && pass_ret != ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGW(TAG, "Failed to read saved WiFi password from NVS: %s",
+                 esp_err_to_name(pass_ret));
+    }
 
     if (ret != ESP_OK || !ssid[0]) {
         ESP_LOGI(TAG, "[X4] WIFI_FAILED reason=no_saved_credentials");

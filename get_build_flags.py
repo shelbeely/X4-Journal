@@ -35,7 +35,8 @@ channel = os.environ.get("X4_OTA_CHANNEL", "dev")
 build_num = get_build_number()
 git_commit = get_git_commit()
 timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-version = "x4-agent-{}-{}".format(channel, build_num)
+build_prefix = os.environ.get("X4_VERSION_PREFIX", "x4-journal")
+version = "{}-{}-{}".format(build_prefix, channel, build_num)
 
 flags = [
     '-DFIRMWARE_VERSION=\\"{}\\"'.format(version),

@@ -92,7 +92,7 @@ static void render_recovery_screen(const char *wifi_status, const char *wifi_ip,
              part ? part->label : "unknown");
     display_draw_text(10, y, line, 1); y += 14;
 
-    snprintf(line, sizeof(line), "Wi-Fi:   %s  %s", wifi_status, wifi_ip);
+    snprintf(line, sizeof(line), "Wi-Fi:   %s %s", wifi_status, wifi_ip);
     display_draw_text(10, y, line, 1); y += 14;
 
     snprintf(line, sizeof(line), "OTA:     %s", ota_status);

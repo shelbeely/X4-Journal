@@ -202,7 +202,7 @@ void health_check_run(health_status_t *out, bool safe_mode)
     }
     /* Disallow any "skipped" stage in agent mode */
     if (strcmp(out->display, HEALTH_SKIPPED) == 0 ||
-        strcmp(out->input,   HEALTH_SKIPPED) == 0) {
+        strcmp(out->input, HEALTH_SKIPPED) == 0) {
         mark_failed(out, "agent_gate", "skipped_stage_not_allowed");
         ESP_LOGE(TAG, "[X4] HEALTH_FAILED stage=agent_gate reason=skipped_stage_not_allowed");
         health_check_apply_rollback_gate(out);

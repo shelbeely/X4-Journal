@@ -182,7 +182,7 @@ esp_err_t diag_get_status(char *json_out, size_t len)
     cJSON_Delete(root);
     if (!str) return ESP_ERR_NO_MEM;
 
-    if (strlen(str) >= len) {
+    if (strlen(str) >= len - 1) {
         free(str);
         return ESP_ERR_NO_MEM;
     }
