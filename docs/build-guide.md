@@ -10,8 +10,8 @@ hardware assumptions.
 
 ## Prerequisites
 
-- ESP-IDF installed and `idf.py` on your PATH (version ≥ 5.0 recommended).
-- Python ≥ 3.8 (used by idf.py and agent scripts).
+- [PlatformIO Core](https://docs.platformio.org/en/latest/core/installation.html) CLI (`pio`) or PlatformIO IDE extension.
+- Python ≥ 3.8 (used by PlatformIO and agent scripts).
 - `jq` installed (used by agent scripts for JSON parsing).
 - `sha256sum` or `shasum` available (used by `agent_publish_ota.sh`).
 - `curl` available (used by agent scripts for HTTP requests).
@@ -31,14 +31,10 @@ end users.
 
 Or manually:
 ```sh
-idf.py -DCONFIG_X4_DEV_DIAGNOSTICS=n \
-        -DCONFIG_X4_AGENT_DIAGNOSTICS=n \
-        -DCONFIG_X4_VERBOSE_DISPLAY_DIAGNOSTICS=n \
-        -DCONFIG_X4_DIAG_HTTP_API=n \
-        build
+pio run --environment x4_journal
 ```
 
-Output: `build/<project>.bin`
+Output: `.pio/build/x4_journal/<project>.bin`
 
 ---
 
@@ -50,14 +46,12 @@ Enables the HTTP diagnostics API and verbose logging for developer iteration.
 ./tools/agent_build_dev.sh
 ```
 
-Or manually:
+Or manually, add diagnostic defines to `build_flags` in `platformio.ini` and run:
 ```sh
-idf.py -DCONFIG_X4_DEV_DIAGNOSTICS=y \
-        -DCONFIG_X4_DIAG_HTTP_API=y \
-        build
+pio run --environment x4_journal
 ```
 
-Output: `build/<project>.bin`
+Output: `.pio/build/x4_journal/<project>.bin`
 
 ---
 
@@ -66,40 +60,39 @@ Output: `build/<project>.bin`
 Strictest OTA health gate. Intended for AI-agent-assisted development where every
 subsystem must pass before the firmware is accepted.
 
-```sh
-idf.py -DCONFIG_X4_DEV_DIAGNOSTICS=y \
-        -DCONFIG_X4_AGENT_DIAGNOSTICS=y \
-        -DCONFIG_X4_DIAG_HTTP_API=y \
-        build
+Add the following to `build_flags` in `platformio.ini`:
+```
+-DCONFIG_X4_DEV_DIAGNOSTICS=1
+-DCONFIG_X4_AGENT_DIAGNOSTICS=1
+-DCONFIG_X4_DIAG_HTTP_API=1
 ```
 
-Output: `build/<project>.bin`
+Then build:
+```sh
+pio run --environment x4_journal
+```
+
+Output: `.pio/build/x4_journal/<project>.bin`
 
 ---
 
 ## Configuring OTA Manifest URL and Channel
 
-### Via sdkconfig.defaults (recommended for a project)
+### Via `platformio.ini` `build_flags` (recommended)
 
-Add to `sdkconfig.defaults`:
+Add to the `[env:x4_journal]` section:
+```ini
+build_flags =
+    ...existing flags...
+    -DCONFIG_OTA_MANIFEST_URL=\"https://ota.example.com/manifest.json\"
+    -DCONFIG_OTA_CHANNEL=\"dev\"
+```
+
+### Via `sdkconfig.defaults` (if using ESP-IDF directly)
+
 ```
 CONFIG_OTA_MANIFEST_URL="https://ota.example.com/manifest.json"
 CONFIG_OTA_CHANNEL="dev"
-```
-
-### Via idf.py build override (for a single build)
-
-```sh
-idf.py -DCONFIG_OTA_MANIFEST_URL="https://ota.example.com/manifest.json" \
-        -DCONFIG_OTA_CHANNEL="dev" \
-        build
-```
-
-### Via menuconfig (interactive)
-
-```sh
-idf.py menuconfig
-# Navigate to: Component config → X4 OTA → Manifest URL / Channel
 ```
 
 ---
@@ -108,7 +101,8 @@ idf.py menuconfig
 
 Initial flash (first time, requires USB):
 ```sh
-idf.py flash monitor
+pio run --environment x4_journal -t upload
+pio device monitor
 ```
 
 After the first flash, subsequent updates use OTA. USB is only needed if OTA is broken
@@ -178,12 +172,12 @@ export X4_DEVICE_API_TOKEN=your-token-here
 When the device IP is not available or for low-level debugging:
 
 ```sh
-idf.py monitor
+pio device monitor
 ```
 
 Filter for structured markers:
 ```sh
-idf.py monitor | grep '\[X4\]'
+pio device monitor | grep '\[X4\]'
 ```
 
 Key markers to watch after OTA:
@@ -196,8 +190,8 @@ Key markers to watch after OTA:
 
 ## Safe Mode Entry
 
-1. Hold the boot button (GPIO0 by default, or `CONFIG_SAFE_MODE_GPIO`) while powering on.
-2. Hold for ≥ 3 seconds (configurable via `CONFIG_SAFE_MODE_HOLD_MS`).
+1. Hold the POWER button (GPIO3) while powering on.
+2. Hold for ≥ 3 seconds.
 3. Release. The serial monitor will show `[X4] SAFE_MODE_ENTERED`.
 4. The device starts Wi-Fi, enables OTA, and shows recovery status on the e-paper display.
 

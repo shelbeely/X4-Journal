@@ -16,21 +16,21 @@ This document is the authoritative pin reference for all firmware modules.
 
 | Property | Value |
 |---|---|
-| Model | GDEW0154M10 (or compatible) |
-| Resolution | 200 × 200 pixels, 1-bit monochrome |
+| Controller | SSD1677 |
+| Resolution | 800 × 480 pixels, 1-bit monochrome (greyscale via LUT) |
 | Interface | 4-wire SPI |
-| Refresh | Full refresh ~2 s; partial refresh ~0.3 s (use sparingly) |
+| Refresh | Full refresh ~2 s; fast/partial refresh ~0.3 s (use sparingly) |
 
 ### Display GPIO
 
 | Signal | GPIO |
 |---|---|
-| MOSI (SDA) | 6 |
-| CLK (SCL) | 7 |
-| CS | 10 |
-| DC (Data/Command) | 2 |
-| RST | 3 |
-| BUSY | 4 |
+| MOSI (SDA) | 10 |
+| CLK (SCL) | 8 |
+| CS | 21 |
+| DC (Data/Command) | 4 |
+| RST | 5 |
+| BUSY | 6 |
 
 ## SD Card
 
@@ -44,26 +44,37 @@ This document is the authoritative pin reference for all firmware modules.
 
 | Signal | GPIO |
 |---|---|
-| MOSI | 6 (shared with display) |
+| MOSI | 10 (shared with display) |
 | MISO | 5 |
-| CLK | 7 (shared with display) |
-| CS | 8 |
+| CLK | 8 (shared with display) |
+| CS | 12 |
 
 ## Physical Buttons
 
-All buttons are **active-low** with internal pull-ups enabled.
-Hold detection threshold: **800 ms**.
-Debounce: **50 ms**.
+The X4 uses an **ADC resistor-ladder** scheme rather than individual GPIO pins for most
+buttons. Two ADC pins each serve a group of buttons, and the power button is a direct
+digital GPIO.
 
-| Button | GPIO | Function |
+| Group | GPIO | Buttons |
 |---|---|---|
-| LEFT | 18 | Move selection left / previous |
-| RIGHT | 19 | Move selection right / next |
-| CONFIRM | 20 | Select / enter; hold = save/done |
-| BACK | 21 | Go back / cancel |
-| VOL+ | 9 | Scroll up / increase value |
-| VOL− | 10 | Scroll down / decrease value |
-| POWER | 11 | Sleep/wake; hold = power off |
+| ADC bus 1 | 1 | BACK, CONFIRM, LEFT, RIGHT (resistor ladder) |
+| ADC bus 2 | 2 | UP (VOL+), DOWN (VOL−) (resistor ladder) |
+| Power (digital) | 3 | POWER (active LOW, internal pull-up) |
+
+Button indices used by `InputManager` (community-sdk):
+
+| Index | Name | Function |
+|---|---|---|
+| 0 | BACK | Go back / cancel |
+| 1 | CONFIRM | Select / enter; hold = save/done |
+| 2 | LEFT | Move selection left / previous |
+| 3 | RIGHT | Move selection right / next |
+| 4 | UP | Scroll up / increase value |
+| 5 | DOWN | Scroll down / decrease value |
+| 6 | POWER | Sleep/wake; hold = power off |
+
+Hold detection threshold: **800 ms** (firmware-side, in `src/platform/buttons.cpp`).
+Debounce: **5 ms** (InputManager SDK default).
 
 ## Battery
 
@@ -99,14 +110,15 @@ Timekeeping strategy (in priority order):
 | TX | 21 |
 | RX | 20 |
 
-> Note: UART TX/RX share GPIO with CONFIRM/BACK buttons. These GPIOs are reconfigured
-> as GPIO inputs at runtime after boot (UART is only used for debug output via USB
-> serial on the devkit; on production hardware UART is not connected to external pins).
+> Note: GPIO 21 is also used as the EPD chip-select line (`X4_EPD_CS`). UART0 output
+> is only relevant before the display driver asserts CS. In practice, debug output is
+> accessed through the USB CDC serial port provided by the ESP32-C3 USB interface;
+> use `pio device monitor` or a serial terminal at 115200 baud.
 
 ## SPI Bus Sharing
 
 The display and SD card share the MOSI and CLK lines. They are disambiguated by
-their individual CS pins (GPIO 10 for display, GPIO 8 for SD). Both are driven
+their individual CS pins (GPIO 21 for display, GPIO 12 for SD). Both are driven
 by the same ESP-IDF SPI host (SPI2 / HSPI). The display driver holds CS low only
 during command/data transactions; the SD driver uses the FATFS SPI layer which
 manages its own CS.

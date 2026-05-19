@@ -4,9 +4,9 @@
 
 **Device:** Xteink X4 (PocketShrine)
 **MCU:** ESP32-C3 (RISC-V single-core, 160 MHz)
-**Display:** SPI EPD 200×200 framebuffer (e-paper driver in `src/platform/display`)
-**Storage:** SD card via FATFS (`/sdcard/`); NVS for config/OTA state
-**Input:** Physical buttons — GPIO ISR + FreeRTOS queue (see `src/platform/buttons`)
+**Display:** SPI EPD 800×480 framebuffer (SSD1677 driver via `EInkDisplay` SDK lib, wrapped in `src/platform/display`)
+**Storage:** SD card via SdFat (`/sdcard/` VFS prefix); NVS for config state
+**Input:** Buttons via ADC resistor-ladder (GPIO1/GPIO2) + power button (GPIO3); events through FreeRTOS queue (see `src/platform/buttons`)
 **Connectivity:** 802.11 b/g/n Wi-Fi (SoftAP mode; SSID `PocketShrine-XXXX`)
 **Build system:** PlatformIO (`platformio.ini`)
 
@@ -16,8 +16,8 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                        src/main.c                        │
-│              (app_main — initialises all layers)         │
+│                       src/main.cpp                       │
+│              (setup() — initialises all layers)          │
 └──────────────┬──────────────────────────┬───────────────┘
                │                          │
 ┌──────────────▼──────────────┐  ┌────────▼──────────────┐
@@ -162,42 +162,38 @@ E-paper rules: no animations, full-screen state changes only, large selectable r
 
 ---
 
-## app_main Call Order
+## setup() Call Order
 
 ```
-app_main()
+setup()  [Arduino entry point in src/main.cpp]
   │
-  ├─► safe_mode_detect()          — reads GPIO before any other init
+  ├─► sdcard_init()              — must come before any filesystem access
   │
-  ├─► nvs_init()                  — required by: wifi, ota, safe mode, crash counter
+  ├─► display_init()             — EInkDisplay heap allocation + SPI init
   │
-  ├─► display_init()              — called early; result stored for health check
-  │   └─► emit DISPLAY_INIT_START / DISPLAY_INIT_OK / DISPLAY_INIT_FAILED
+  ├─► display splash screen      — "PocketShrine vX.Y.Z" drawn and refreshed
   │
-  ├─► wifi_init()                 — uses NVS credentials
-  │   └─► emit WIFI_OK / WIFI_FAILED
+  ├─► rtcdrv_init()              — restores last-known time from NVS (Preferences)
   │
-  ├─► input_init()                — initializes button subsystem
-  │   └─► emit INPUT_OK / INPUT_FAILED
+  ├─► power_init()               — battery ADC + sleep configuration
   │
-  ├─► [if PENDING_VERIFY] health_check_run()
-  │   ├─► check boot / reset_reason / storage / wifi / internet / ota
-  │   ├─► check display (render all_white test pattern)
-  │   ├─► check input
-  │   ├─► check heap
-  │   ├─► check logs
-  │   ├─► [all pass] → esp_ota_mark_app_valid_cancel_rollback()
-  │   │                emit OTA_MARK_VALID
-  │   └─► [any fail] → emit OTA_ROLLBACK_REQUESTED
-  │                    esp_ota_mark_app_invalid_rollback_and_reboot()
+  ├─► vault_init()               — crypto vault (pass-through until Phase 4)
   │
-  ├─► [if web server] http_server_start()
-  │   ├─► register /api/* handlers
-  │   └─► [if CONFIG_X4_DIAG_HTTP_API] register /api/dev/* handlers
+  ├─► [if sdcard mounted] journal_fs_init()
   │
-  ├─► ota_scheduler_start()       — starts background manifest poll timer
+  ├─► [if sdcard mounted] index_rebuild()   — scans front matter into metadata index
   │
-  └─► [safe mode] safe_mode_loop() | [normal] app_loop() → journal_app task
+  ├─► [if sdcard mounted] prompt_engine_init()
+  │
+  ├─► entry_editor_init()
+  │
+  ├─► buttons_init()             — starts FreeRTOS button_task polling InputManager
+  │
+  └─► journal_app_init()
+      └─► xTaskCreate(journal_app_task, ...)
+
+loop()  [Arduino main loop]
+  └─► vTaskDelay(1000 ms)        — all logic runs inside journal_app_task
 ```
 
 ---
