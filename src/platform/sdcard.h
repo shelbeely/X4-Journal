@@ -3,6 +3,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 esp_err_t sdcard_init(void);
 void      sdcard_deinit(void);
 bool      sdcard_is_mounted(void);
@@ -13,3 +17,7 @@ esp_err_t sdcard_file_exists(const char *path, bool *exists);
 esp_err_t sdcard_list_dir(const char *path, char ***entries, int *count);
 esp_err_t sdcard_delete_file(const char *path);
 void      sdcard_free_list(char **entries, int count);
+
+#ifdef __cplusplus
+}
+#endif

@@ -1,4 +1,8 @@
 #pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "esp_err.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,3 +24,7 @@ esp_err_t    vault_encrypt_entry(const char *plaintext, size_t pt_len,
                                   uint8_t **out, size_t *out_len);
 esp_err_t    vault_decrypt_entry(const uint8_t *ciphertext, size_t ct_len,
                                   char **out, size_t *out_len);
+
+#ifdef __cplusplus
+}
+#endif

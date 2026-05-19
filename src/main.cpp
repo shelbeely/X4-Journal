@@ -1,9 +1,9 @@
+#include <Arduino.h>
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-/* Platform */
 #include "platform/sdcard.h"
 #include "platform/display.h"
 #include "platform/buttons.h"
@@ -11,16 +11,13 @@
 #include "platform/power.h"
 #include "platform/wifi.h"
 
-/* Storage */
 #include "storage/journal_fs.h"
 #include "storage/metadata_index.h"
 
-/* App */
 #include "app/prompt_engine.h"
 #include "app/entry_editor.h"
 #include "app/journal_app.h"
 
-/* Crypto */
 #include "crypto/vault.h"
 
 static const char *TAG = "main";
@@ -30,7 +27,7 @@ static const char *TAG = "main";
 /* Forward-declare button callback (defined in journal_app.c via queue) */
 static void _btn_noop(button_event_t ev, void *ctx) { (void)ev; (void)ctx; }
 
-void app_main(void)
+void setup(void)
 {
     ESP_LOGI(TAG, "PocketShrine v%s booting...", FIRMWARE_VERSION);
 
@@ -101,4 +98,10 @@ void app_main(void)
     xTaskCreate(journal_app_task, "journal_app", 8192, NULL, 5, NULL);
 
     ESP_LOGI(TAG, "Boot complete. Running.");
+}
+
+void loop(void)
+{
+    /* All application logic runs in the FreeRTOS journal_app_task. */
+    vTaskDelay(portMAX_DELAY);
 }

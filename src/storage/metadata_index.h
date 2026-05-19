@@ -1,4 +1,8 @@
 #pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "markdown_entry.h"
 #include "esp_err.h"
 
@@ -22,3 +26,7 @@ esp_err_t index_get_by_date(int year, int month, int day, entry_meta_t *out, int
 esp_err_t index_get_favorites(int limit, entry_meta_t *out, int *count);
 esp_err_t index_get_by_tag(const char *tag, int limit, entry_meta_t *out, int *count);
 int       index_total_count(void);
+
+#ifdef __cplusplus
+}
+#endif

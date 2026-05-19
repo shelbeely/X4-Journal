@@ -15,9 +15,9 @@ static const char *TAG = "sdcard";
 
 #define MOUNT_POINT "/sdcard"
 #define PIN_MISO  5
-#define PIN_MOSI  6
-#define PIN_CLK   7
-#define PIN_CS    8
+#define PIN_MOSI 10
+#define PIN_CLK   8
+#define PIN_CS   12
 
 static bool s_mounted = false;
 static sdmmc_card_t *s_card = NULL;

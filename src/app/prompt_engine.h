@@ -1,4 +1,8 @@
 #pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "esp_err.h"
 #include <stddef.h>
 
@@ -18,3 +22,7 @@ const char       *prompt_get_random(const char *pack_id);
 int               prompt_get_pack_count(void);
 const prompt_pack_t *prompt_get_pack(int idx);
 esp_err_t         prompt_load_pack(const char *path);
+
+#ifdef __cplusplus
+}
+#endif

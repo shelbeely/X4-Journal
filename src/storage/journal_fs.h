@@ -1,4 +1,8 @@
 #pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "esp_err.h"
 #include <stddef.h>
 
@@ -16,3 +20,7 @@ esp_err_t journal_fs_list_entries_for_month(int year, int month, char ***ids, in
 esp_err_t journal_fs_count_entries_this_week(int *count);
 esp_err_t journal_fs_get_last_entry_time(char *buf, size_t len);
 int       journal_fs_total_days_written(void);
+
+#ifdef __cplusplus
+}
+#endif
