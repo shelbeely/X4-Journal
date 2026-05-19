@@ -1,0 +1,134 @@
+{
+  "packs": [
+    {
+      "id": "daily-checkin",
+      "name": "Daily Check-In",
+      "prompts": [
+        "How are you arriving today?",
+        "What's the texture of today, so far?",
+        "If your body could talk right now, what would it say?",
+        "What's one thing you're carrying into today?",
+        "What do you need more of today? Less of?",
+        "How full or empty do you feel right now, and is that okay?",
+        "What's something small you noticed today?"
+      ]
+    },
+    {
+      "id": "dysphoria-support",
+      "name": "Dysphoria Support",
+      "prompts": [
+        "You don't have to explain yourself. What's weighing on you?",
+        "What would feel like a small act of care for yourself right now?",
+        "Is there something about today that felt misaligned? You can name it here.",
+        "What version of yourself are you grieving, and what version are you growing into?",
+        "You're allowed to feel complicated today. What's the most complicated feeling?",
+        "What would you say to a friend who felt what you're feeling right now?",
+        "What part of you showed up today, even if it was hard?"
+      ]
+    },
+    {
+      "id": "anxiety-grounding",
+      "name": "Anxiety Grounding",
+      "prompts": [
+        "Name three things you can see right now.",
+        "What's one thing that is actually okay right now, in this moment?",
+        "What is the anxiety telling you, and is it true?",
+        "What would the most grounded version of you say to the anxious version?",
+        "What is your body doing right now? Where do you feel tension?",
+        "You've survived hard things before. What got you through?",
+        "What would help you feel 5% safer right now?"
+      ]
+    },
+    {
+      "id": "gratitude",
+      "name": "Gratitude (No Toxic Positivity)",
+      "prompts": [
+        "What's something that happened today that didn't make it worse?",
+        "Is there anyone you thought of today who you're glad exists?",
+        "What's one small thing you have access to that you don't take for granted?",
+        "What's something your body did today that you can acknowledge, without pressure?",
+        "What's a moment from this week that you'd want to remember?",
+        "Who or what has shown up for you recently, even in a small way?",
+        "What's something true that is also okay, right now?"
+      ]
+    },
+    {
+      "id": "tiny-wins",
+      "name": "Tiny Wins",
+      "prompts": [
+        "What's something you did today that took more effort than it looks?",
+        "Did you eat something? Drink water? That counts.",
+        "What's a task you kept putting off that you finally touched?",
+        "What's something you did today that the version of you from a hard day couldn't have done?",
+        "What's a tiny thing you made or created or contributed today?",
+        "What decision did you make today, even if it was small?",
+        "What did you keep going through today?"
+      ]
+    },
+    {
+      "id": "memory-capture",
+      "name": "Memory Capture",
+      "prompts": [
+        "Describe a moment from today with as much sensory detail as you can.",
+        "What made you laugh, smile, or feel something warm today?",
+        "What's something you want to remember about right now?",
+        "Who did you see or talk to today? What did they say or do?",
+        "What's something beautiful or strange you noticed?",
+        "What's a conversation you had today that mattered?",
+        "If you were writing a letter to yourself in 10 years, what would you describe about today?"
+      ]
+    },
+    {
+      "id": "dream-log",
+      "name": "Dream Log",
+      "prompts": [
+        "Write down anything you remember from last night's dreams.",
+        "What was the emotional tone of your dream? What feeling did you wake up with?",
+        "Was there a symbol, image, or figure that stood out in your dream?",
+        "Did your dream feel like a memory, a warning, or something else?",
+        "What do you think your subconscious was working through?",
+        "Write down even fragments — a color, a place, a feeling.",
+        "What would you ask the dream if it could answer back?"
+      ]
+    },
+    {
+      "id": "media-diary",
+      "name": "Media Diary",
+      "prompts": [
+        "What have you been reading, watching, or listening to lately?",
+        "Did anything you consumed recently hit different than expected?",
+        "What's a piece of art that's been living rent-free in your head?",
+        "What song has been on repeat and what does it mean to you right now?",
+        "Did you encounter a story recently that felt like it was written for you?",
+        "What's something you stopped watching or reading and why?",
+        "What's a line or moment from something you consumed that you want to remember?"
+      ]
+    },
+    {
+      "id": "ritual",
+      "name": "Ritual / Witchy Mode",
+      "prompts": [
+        "What phase is the moon in, and how does that feel in your body?",
+        "What are you calling in right now? What are you releasing?",
+        "Write a small intention for the next cycle, season, or week.",
+        "What element feels most present for you today — earth, fire, water, air?",
+        "What would you like to consecrate or make sacred today, even in a small way?",
+        "What's a boundary you want to set or strengthen?",
+        "Write yourself a small spell or blessing for the road ahead."
+      ]
+    },
+    {
+      "id": "debug-brain",
+      "name": "Debug My Brain",
+      "prompts": [
+        "What's the story you've been telling yourself today? Is it accurate?",
+        "What assumption are you making that might not be true?",
+        "What would you do differently if you weren't afraid?",
+        "What's a pattern you keep noticing in yourself?",
+        "What does the avoidant part of you not want you to write about today?",
+        "What would a kind but honest outside observer say about your situation?",
+        "What do you actually want, underneath the thing you think you want?"
+      ]
+    }
+  ]
+}
