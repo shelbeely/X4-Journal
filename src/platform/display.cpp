@@ -1,6 +1,7 @@
 #include "display.h"
 #include "hardware_pins.h"
 #include <EInkDisplay.h>
+#include <new>
 #include <string.h>
 
 static EInkDisplay *s_eink = nullptr;
@@ -123,7 +124,7 @@ static void fb_set_pixel(uint8_t *fb, int x, int y, uint8_t black)
 esp_err_t display_init(void)
 {
     if (!s_eink) {
-        s_eink = new EInkDisplay(X4_SPI_SCLK, X4_SPI_MOSI, X4_EPD_CS, X4_EPD_DC, X4_EPD_RST, X4_EPD_BUSY);
+        s_eink = new (std::nothrow) EInkDisplay(X4_SPI_SCLK, X4_SPI_MOSI, X4_EPD_CS, X4_EPD_DC, X4_EPD_RST, X4_EPD_BUSY);
         if (!s_eink) return ESP_ERR_NO_MEM;
     }
     s_eink->begin();

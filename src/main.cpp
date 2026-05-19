@@ -49,7 +49,7 @@ void setup(void)
     display_draw_text(60, 100, "v" FIRMWARE_VERSION, 1);
     display_full_refresh();
 
-    /* 4. RTC — restores last-known time from Preferences */
+    /* 4. RTC driver — restores last-known time from Preferences */
     rtcdrv_init();
 
     /* 5. Power */

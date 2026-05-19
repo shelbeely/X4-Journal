@@ -13,10 +13,14 @@
 
 static const char *TAG = "sdcard";
 
-/* Strip the /sdcard prefix so paths work with SdFat's root-relative API */
+/* Strip the /sdcard prefix so paths work with SdFat's root-relative API.
+ * Always returns a non-empty string; falls back to "/" for bare /sdcard. */
 static const char *sd_path(const char *path)
 {
-    if (path && strncmp(path, "/sdcard", 7) == 0) return path + 7;
+    if (path && strncmp(path, "/sdcard", 7) == 0) {
+        const char *p = path + 7;
+        return (p[0] == '\0') ? "/" : p;
+    }
     return path;
 }
 
